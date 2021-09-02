@@ -9,10 +9,9 @@ layout: default
 
 #### CS231n: Convolutional Neural Networks for Visual RecognitionPermalink
 
-This is my implementation of assignments and projects in [CS231n: Convolutional Neural Networks for Visual Recognition](http://cs231n.stanford.edu/) by Stanford (Spring, 2019). NumPy implementations of forward and backward pass of each layer in a convolutional neural network have given me a deep understanding of how state-of-the-art Computer Vision architectures work under the hood. In addition, I explored the inner workings of Deep Learning by implementing Style Transfer, Deep Dream, Texture Synthesis in PyTorch and generating new images with GANs.
+This is my implementation of assignments and projects in [CS231n: Convolutional Neural Networks for Visual Recognition](http://cs231n.stanford.edu/) by Stanford (Spring, 2019). NumPy implementations of forward and backward pass of each layer in a convolutional neural network have given me a deep understanding of how state-of-the-art Computer Vision architectures work under the hood. Furthermore, I explored the inner workings of Deep Learning by implementing Style Transfer, Deep Dream, Texture Synthesis in PyTorch and generating new images with GANs.
 
 [<img src="https://img.shields.io/badge/GitHub-View%20on%20GitHub-blue?style=flat&logo=github">](https://github.com/juanfpinzon/CS231n-self-paced)
-<!-- ![GitHub](https://img.shields.io/badge/GitHub-View%20on%20GitHub-blue?style=flat&logo=github)(https://github.com/juanfpinzon/CS231n-self-paced) -->
 
 ## Data Engineering
 

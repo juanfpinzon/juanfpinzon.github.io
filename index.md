@@ -7,7 +7,7 @@ layout: default
 
 ### Computer Vision:
 
-#### CS231n: Convolutional Neural Networks for Visual RecognitionPermalink
+#### CS231n: Convolutional Neural Networks for Visual Recognition
 
 This is my implementation of assignments and projects in [CS231n: Convolutional Neural Networks for Visual Recognition](http://cs231n.stanford.edu/) by Stanford (Spring, 2019). NumPy implementations of forward and backward pass of each layer in a convolutional neural network have given me a deep understanding of how state-of-the-art Computer Vision architectures work under the hood. Furthermore, I explored the inner workings of Deep Learning by implementing Style Transfer, Deep Dream, Texture Synthesis in PyTorch and generating new images with GANs.
 
@@ -16,7 +16,7 @@ This is my implementation of assignments and projects in [CS231n: Convolutional 
 #### U-NET for SPINE Vertebrae Detection with Pytorch
 
 End-to-end proof-of-concept research project where I was in charge of extracting full body (thoracic & lumbar) spine X-ray images from a database with more the 100,000 thousand medical images (x-rays, MRI's and CT scans). The extracted DICOM files where filtered classified and filtered (with & without implants) using a basic CNN. Afterwards, for a portion of the images I did manual annotation of the vertebrae  and created masks for such annotations, for training and evaluation purposes. I implemented, trained and fine-tuned a U-NET Convolutional Neural Network that is able to recognize each vertebra from a given input thoracic x-ray. Finally, I created a pos-processing script that uses OpenCV for drawing the identified vertebrae over the input x-ray and calculate angle of deviation for each vertebra.
-**Materials on this project can't be shared becuase the project is in the process of obtaining a grant from the Russian Federation government.**
+**Materials on this project can't be shared because the project is in the process of obtaining a grant from the Russian Federation government.**
 
 ## Data Engineering
 

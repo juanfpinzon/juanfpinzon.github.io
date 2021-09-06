@@ -19,6 +19,12 @@ End-to-end proof-of-concept research project where I was in charge of extracting
 
 **Materials on this project can't be shared because the project is in the process of obtaining a grant from the Russian Federation government.**
 
+### Natural Language Processing (NLP):
+
+#### Resume/CV Named Entity Recognition (NER) Extractor
+
+Research project were our team had the task to create a resume/CV parser which was able to recognize main entities such as name, email, degree, previous working experience, soft skills, technical skills and others. 
+
 ## Data Engineering
 
 Text can be **bold**, _italic_, or ~~strikethrough~~.

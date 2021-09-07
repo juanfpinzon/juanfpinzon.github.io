@@ -15,7 +15,7 @@ This is my implementation of assignments and projects in [CS231n: Convolutional 
 
 #### U-NET for SPINE Vertebrae Detection with Pytorch
 
-![Spine](/assets/img/image_55.png)
+![Spine](/assets/img/image_55.png =650x)
 
 End-to-end (from data collection to training) proof-of-concept research project where I was in charge of extracting full body (thoracic & lumbar) spine X-ray images from a database with more the 100,000 thousand medical images (x-rays, MRI's and CT scans). The extracted DICOM files where filtered classified and filtered (with & without implants) using a basic CNN. Afterwards, for a portion of the images I did manual annotation of the vertebrae  and created masks for such annotations, for training and evaluation purposes. I implemented, trained and fine-tuned a U-NET Convolutional Neural Network that is able to recognize each vertebra from a given input thoracic x-ray. Finally, I created a pos-processing script that uses OpenCV for drawing the identified vertebrae over the input x-ray and calculate angle of deviation for each vertebra.
 

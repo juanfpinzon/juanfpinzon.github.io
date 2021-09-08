@@ -6,9 +6,10 @@ description: >
   M.Sc Big Data Analytics & AI, Business Administration bachelor.
   <br><br>
   <a href="https://www.linkedin.com/in/juanfpinzon/">
-    <img src="/assets/logos/linkedin.jpeg" alt="HTML tutorial" style="width:42px;height:42px;">
-  </a>
-  <a href="https://www.linkedin.com/in/juanfpinzon/">View My LinkedIn Profile</a>
+    <img src="/assets/logos/linkedin.jpeg" alt="LinkedIn" style="width:42px;height:42px;">
+  </a>LinkedIn
+  # <br><br>
+  # <a href="https://www.linkedin.com/in/juanfpinzon/">View My LinkedIn Profile</a>
 show_downloads: false
 google_analytics:
 theme: jekyll-theme-minimal

@@ -19,7 +19,7 @@ This is my implementation of assignments and projects in [CS231n: Convolutional 
 
 End-to-end (from data collection to training) proof-of-concept research project where I was in charge of extracting full body (thoracic & lumbar) spine X-ray images from a database with more the 100,000 thousand medical images (x-rays, MRI's and CT scans). The extracted DICOM files where filtered classified and filtered (with & without implants) using a basic CNN. Afterwards, for a portion of the images I did manual annotation of the vertebrae  and created masks for such annotations, for training and evaluation purposes. I implemented, trained and fine-tuned a U-NET Convolutional Neural Network that is able to recognize each vertebra from a given input thoracic x-ray. Finally, I created a pos-processing script that uses OpenCV for drawing the identified vertebrae over the input x-ray and calculate angle of deviation for each vertebra.
 
-**Materials on this project can't be shared because the project is in the process of obtaining a grant from the Russian Federation government.**
+*Materials on this project can't be shared because the project is in the process of obtaining a grant from the Russian Federation government.*
 
 ### Natural Language Processing (NLP):
 
@@ -27,7 +27,7 @@ End-to-end (from data collection to training) proof-of-concept research project 
 
 Research project were our team had the task to create a resume/CV parser which was able to recognize main entities such as name, email, degree, previous working experience, soft skills, technical skills and others. To accomplish this task we had to gather from open-source sources and manually annotate the dataset according the desired Named Entities to extract. We used Pytorch and the FlairNLP python framework for training our models. Given the difficulty of the task in hand our results did not meet clients expectations for production deployment but we contributed with a paper publication in a well known NLP conference and the publication of the 500 NER annotated resumes/CVs for others to use.
 
-*   [Limitations of Neural Networks-based NER for Resume Data Extraction - Sociedad Española para el Procesamiento del Lenguaje Natural (2020)](http://journal.sepln.org/sepln/ojs/ojs/index.php/pln/article/view/6276)
+*   *Paper:*  [Limitations of Neural Networks-based NER for Resume Data Extraction - Sociedad Española para el Procesamiento del Lenguaje Natural (2020)](http://journal.sepln.org/sepln/ojs/ojs/index.php/pln/article/view/6276)
 
 ## Data Engineering
 

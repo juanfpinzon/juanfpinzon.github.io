@@ -29,7 +29,7 @@ Research project were our team had the task to create a resume/CV parser which w
 
 *   *Published Paper:*  [Limitations of Neural Networks-based NER for Resume Data Extraction - Sociedad Española para el Procesamiento del Lenguaje Natural (2020)](http://journal.sepln.org/sepln/ojs/ojs/index.php/pln/article/view/6276)
 *   [545 Open Source NER Annotated CVs Dataset](https://github.com/juanfpinzon/resume-dataset)
-*   [Example Notebook](/assets/notebooks/skills-semantic-similarity-scoring-50cvs.ipynb)
+*   [Example Notebook](/assets/notebooks/skills-semantic-similarity-scoring-50cvs.ipynb): Pytorch & FlairNLP NER extraction from CVs and matching with skills from ONET database pipeline.
 
 ## Data Engineering
 

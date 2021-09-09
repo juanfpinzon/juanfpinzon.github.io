@@ -10,10 +10,11 @@ layout: default
 #### U-NET for SPINE Vertebrae Detection with Pytorch
 
 <center><img src="/assets/img/img55.png"/></center>
+<br>
 
 <div style="text-align: justify">End-to-end (from data collection to training) proof-of-concept research project where I was in charge of extracting full body (thoracic & lumbar) spine X-ray images from a database with more the 100,000 thousand medical images (x-rays, MRI's and CT scans). The extracted DICOM files where filtered and classified (with & without implants) using a basic CNN classifier. Afterwards, for a portion of the images I did manual annotations of the vertebrae and created masks for such annotations, for training and evaluation purposes. I implemented, trained and fine-tuned a U-NET Convolutional Neural Network, using Pytorch and fast.ai framework, that is able to recognize each vertebra from a given input thoracic x-ray. Finally, I created a pos-processing script that uses OpenCV for drawing the identified vertebrae over the input x-ray and calculate angle of deviation for each vertebra.</div>
 
-
+<br>
 *Materials on this project can't be shared because the project is in the process of obtaining a grant from the Russian Federation government.*
 
 #### CS231n: Convolutional Neural Networks for Visual Recognition
@@ -21,13 +22,14 @@ layout: default
 [<img src="https://img.shields.io/badge/GitHub-View%20on%20GitHub-blue?style=flat&logo=github">](https://github.com/juanfpinzon/CS231n-self-paced)
 
 <div style="text-align: justify">This is my implementation of assignments and projects in [CS231n: Convolutional Neural Networks for Visual Recognition](http://cs231n.stanford.edu/) by Stanford University (Spring, 2019). NumPy implementations of forward and backward pass of each layer in a convolutional neural network have given me a deep understanding of how state-of-the-art Computer Vision architectures work under the hood. Furthermore, I explored the inner workings of Deep Learning by implementing Style Transfer, Deep Dream, Texture Synthesis in PyTorch and generating new images with GANs.</div>
-
+<br><br>
 
 ### Natural Language Processing (NLP):
 
 #### Resume/CV Named Entity Recognition (NER) Extractor
 
 <center><img src="/assets/img/cv.png"/></center>
+<br>
 
 <div style="text-align: justify">Research project in which our team had the task to create a resume/CV parser which was able to recognize main entities such as name, email, degree, previous working experience, soft skills, technical skills and others. To accomplish this task we had to gather from open-source sources and manually annotate the dataset according the desired Named Entities to extract. We used Pytorch and the FlairNLP python framework for training our models. Given the difficulty of the task in hand our results did not meet clients expectations for production deployment but we contributed with a paper publication in a well known NLP conference and the publication of the 500 NER annotated resumes/CVs for others to use.</div>
 

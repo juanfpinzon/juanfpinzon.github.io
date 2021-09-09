@@ -2,7 +2,7 @@
 layout: default
 ---
 # Portfolio
-
+---
 ## Data Science & Machine Learning
 
 ### Computer Vision:
@@ -17,12 +17,16 @@ layout: default
 <br>
 *Materials on this project can't be shared because the project is in the process of obtaining a grant from the Russian Federation government.*
 
+---
+
 #### CS231n: Convolutional Neural Networks for Visual Recognition
 
 [<img src="https://img.shields.io/badge/GitHub-View%20on%20GitHub-blue?style=flat&logo=github">](https://github.com/juanfpinzon/CS231n-self-paced)
 
 <div style="text-align: justify">This is my implementation of assignments and projects in <a href="http://cs231n.stanford.edu/" target="_blank">CS231n: Convolutional Neural Networks for Visual Recognition</a> by Stanford University (Spring, 2019). NumPy implementations of forward and backward pass of each layer in a convolutional neural network have given me a deep understanding of how state-of-the-art Computer Vision architectures work under the hood. Furthermore, I explored the inner workings of Deep Learning by implementing Style Transfer, Deep Dream, Texture Synthesis in PyTorch and generating new images with GANs.</div>
 <br>
+
+---
 
 ### Natural Language Processing (NLP):
 
@@ -38,6 +42,8 @@ layout: default
 *   [545 Open Source NER Annotated CVs Dataset](https://github.com/juanfpinzon/resume-dataset)
 *   [Example Notebook 1](https://github.com/juanfpinzon/juanfpinzon.github.io/blob/master/assets/notebooks/ner-training-template.ipynb): Pytorch & FlairNLP NER training pipeline.
 *   [Example Notebook 2](https://github.com/juanfpinzon/juanfpinzon.github.io/blob/master/assets/notebooks/skills-semantic-similarity-scoring-50cvs.ipynb): Pytorch & FlairNLP NER extraction from CVs and matching with skills from ONET database pipeline.
+
+---
 
 ## Data Engineering
 

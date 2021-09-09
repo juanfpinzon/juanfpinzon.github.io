@@ -13,6 +13,7 @@ layout: default
 
 <div style="text-align: justify">End-to-end (from data collection to training) proof-of-concept research project where I was in charge of extracting full body (thoracic & lumbar) spine X-ray images from a database with more the 100,000 thousand medical images (x-rays, MRI's and CT scans). The extracted DICOM files where filtered and classified (with & without implants) using a basic CNN classifier. Afterwards, for a portion of the images I did manual annotations of the vertebrae and created masks for such annotations, for training and evaluation purposes. I implemented, trained and fine-tuned a U-NET Convolutional Neural Network, using Pytorch and fast.ai framework, that is able to recognize each vertebra from a given input thoracic x-ray. Finally, I created a pos-processing script that uses OpenCV for drawing the identified vertebrae over the input x-ray and calculate angle of deviation for each vertebra.</div>
 
+
 *Materials on this project can't be shared because the project is in the process of obtaining a grant from the Russian Federation government.*
 
 #### CS231n: Convolutional Neural Networks for Visual Recognition
@@ -20,6 +21,7 @@ layout: default
 [<img src="https://img.shields.io/badge/GitHub-View%20on%20GitHub-blue?style=flat&logo=github">](https://github.com/juanfpinzon/CS231n-self-paced)
 
 <div style="text-align: justify">This is my implementation of assignments and projects in [CS231n: Convolutional Neural Networks for Visual Recognition](http://cs231n.stanford.edu/) by Stanford University (Spring, 2019). NumPy implementations of forward and backward pass of each layer in a convolutional neural network have given me a deep understanding of how state-of-the-art Computer Vision architectures work under the hood. Furthermore, I explored the inner workings of Deep Learning by implementing Style Transfer, Deep Dream, Texture Synthesis in PyTorch and generating new images with GANs.</div>
+
 
 ### Natural Language Processing (NLP):
 

@@ -32,6 +32,7 @@ layout: default
 <br>
 
 <div style="text-align: justify">Research project in which our team had the task to create a resume/CV parser which was able to recognize main entities such as name, email, degree, previous working experience, soft skills, technical skills and others. To accomplish this task we had to gather from open-source sources and manually annotate the dataset according the desired Named Entities to extract. We used Pytorch and the FlairNLP python framework for training our models. Given the difficulty of the task in hand our results did not meet clients expectations for production deployment but we contributed with a paper publication in a well known NLP conference and the publication of the 500 NER annotated resumes/CVs for others to use.</div>
+<br>
 
 *   *Published Paper:*  [Limitations of Neural Networks-based NER for Resume Data Extraction - Sociedad Española para el Procesamiento del Lenguaje Natural (2020)](http://journal.sepln.org/sepln/ojs/ojs/index.php/pln/article/view/6276)
 *   [545 Open Source NER Annotated CVs Dataset](https://github.com/juanfpinzon/resume-dataset)

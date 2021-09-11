@@ -47,6 +47,11 @@ layout: default
 
 ## Data Engineering
 
+
+
+---
+<center>© 2021 Juan F. Pinzon. Powered by Jekyll and the Minimal Theme.</center>
+
 <!-- Text can be **bold**, _italic_, or ~~strikethrough~~.
 
 [Link to another page](./another-page.html).

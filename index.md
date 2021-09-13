@@ -65,6 +65,7 @@ After all the image processing is finished, the volume is converted to a VTK ima
 *   Apply the smooth mesh filter
 *   Apply the reduce mesh filter
 *   Write out an STL file
+
 A CLI interface has been added to allow for the easy setting of such parameters.
 
 <div style="text-align: justify">The script and it's filter and smoothing parameters have been tuned to perform best for Cranial scans since the code is a key element of the a product called <a href="http://autobone.nprog.ru/login" target="_blank">Autobone</a>, Autobone is a tool for building prototypes of cranial implants as polygonal mesh. The engine is based on deep learning approach using spherical CNN on icosahedral grid. The product is targeted at doctors which have the need of created cranial implants as polygonal meshes from their patient CT Scans. 

@@ -52,13 +52,13 @@ layout: default
 [<img src="https://img.shields.io/badge/GitHub-View%20on%20GitHub-blue?style=flat&logo=github">](https://github.com/juanfpinzon/dicom2stl)
 
 <div style="text-align: justify">Updated, fixed and adapted an Open Source python script that transform input CT Scans as DICOM (International standard format for medical images) series files and generates a STL surface mesh. The code uses the VTK and SimpleITK python libraries and the image processing pipeline is as follows:</div>
-<br>
 
 *   Shrink the volume
 *   Anisotropic smoothing 
 *   Double threshold filter
 *   Median filter
 *   Pad the volume
+
 After all the image processing is finished, the volume is converted to a VTK image and the following VTK pipeline is executed:
 *   Extract a surface mesh from the VTK image
 *   Apply the clean mesh filter

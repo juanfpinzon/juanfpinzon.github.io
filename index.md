@@ -15,7 +15,7 @@ layout: default
 <div style="text-align: justify">End-to-end (from data collection to training) proof-of-concept research project where I was in charge of extracting full body (thoracic & lumbar) spine X-ray images from a database with more than 100,000 thousand medical images (x-rays, MRI's and CT scans). The extracted DICOM files where converted to .PNG format, cleaned, filtered and classified (between with & without implants) using a basic CNN classifier. Afterwards, for a portion of the images I did manual annotations of the vertebrae and created masks for such annotations, for training and evaluation purposes. I implemented, trained and fine-tuned a U-NET Convolutional Neural Network, using Pytorch and fast.ai framework, that is able to recognize each vertebra from a given input thoracic x-ray. Finally, I created a pos-processing script that uses OpenCV for drawing the identified vertebrae over the input x-ray and calculate angle of deviation for each vertebra.</div>
 
 <br>
-*Materials on this project can't be shared because the project is in the process of obtaining a grant from the Russian Federation government.*
+*Materials on this project can't be shared because the project is in the process of being developed as a final product.*
 
 ---
 

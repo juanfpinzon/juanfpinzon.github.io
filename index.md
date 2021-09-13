@@ -47,8 +47,28 @@ layout: default
 
 ## Data Engineering
 
-### Dicom2STL:
+### DICOM2STL:
 
+[<img src="https://img.shields.io/badge/GitHub-View%20on%20GitHub-blue?style=flat&logo=github">](https://github.com/juanfpinzon/dicom2stl)
+
+<div style="text-align: justify">Updated, fixed and adapted an Open Source python script that transform input CT Scans as DICOM (International standard format for medical images) series files and generates a STL surface mesh. The code uses the VTK and SimpleITK python libraries and the image processing pipeline is as follows:</div>
+<br>
+
+*   Shrink the volume
+*   Anisotropic smoothing 
+*   Double threshold filter
+*   Median filter
+*   Pad the volume
+After all the image processing is finished, the volume is converted to a VTK image and the following VTK pipeline is executed:
+*   Extract a surface mesh from the VTK image
+*   Apply the clean mesh filter
+*   Apply the smooth mesh filter
+*   Apply the reduce mesh filter
+*   Write out an STL file
+A CLI interface has been added to allow for the easy setting of such parameters.
+
+<div style="text-align: justify">The script and it's filter and smoothing parameters have been tuned to perform best for Cranial scans since the code is a key element of the a product called <a href="http://autobone.nprog.ru/login" target="_blank">Autobone</a>, Autobone is a tool for building prototypes of cranial implants as polygonal mesh. The engine is based on deep learning approach using spherical CNN on icosahedral grid. The product is targeted at doctors which have the need of created cranial implants as polygonal meshes from their patient CT Scans. 
+This code was used to generate the 1,000+ cranial STL 3D models in which the model was trained on. In the UI/UX this code allows the user to upload their cranial CT Scan DICOM series, create the 3D STL mesh which is given as input to the deep learning model so it predicts the appropriate implant mesh.</div>  
 ---
 <center>© 2021 Juan F. Pinzon. Powered by Jekyll and the Minimal Theme.</center>
 

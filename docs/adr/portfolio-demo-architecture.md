@@ -2,7 +2,7 @@
 
 - **Status:** **Accepted** for Day 27–29 implementation planning (2026-10-26). **Provisioning and any paid call are blocked** until the items in §11 are closed.
 - **Owner / decider:** Juan F. Pinzon. **Reviewer:** Hermes (HER-294, gate HER-271).
-- **Review state:** accepted by the owner. Hermes review round 1 (2026-10-26) was made against portfolio `52bb49d` and ProcureRAG `8323b48`. Its findings on this ADR (the body limit, the in-flight counter, malformed upstream replies) are answered in §6.1, §6.3 and §8.3.1 in the follow-up commits. **Awaiting Hermes re-review**, and HER-294 stays open until then.
+- **Review state:** accepted by the owner. Hermes review round 1 (2026-10-26) was made against portfolio `52bb49d` and ProcureRAG `8323b48`. The owner follow-up was re-reviewed at portfolio `57d45e4` and ProcureRAG `00f32c0`; the body limit, lease-based admission, malformed-upstream handling, accessible CV and evidence wording passed. The closure review made one docs-only fail-closed correction in §8.3.1: a BFF timeout or disconnect does not prove the Azure/provider work stopped, so it must not release the lease early. HER-294 closure is recorded in Linear and the shared-memory vault.
 - **Evidence:**
   - ProcureRAG `src/api.py` (the `QueryRequest` / `QueryResponse` contract and its "Honest limits");
   - ProcureRAG `scripts/portfolio_contract_probe.py` (the no-paid contract probe);
@@ -196,7 +196,7 @@ If the Azure subscription is still the Day 23 free trial (spending limit `On`), 
 | Per-client cap | 10 questions/day per client, keyed by a salted hash of the client IP from Vercel's platform-set headers, never from a browser-supplied header. Weak (NAT, rotation): the global cap is the real spend control | Decided, Day 29 implementation |
 | Input / body | Question 1–500 chars (same as `api.MAX_QUERY_CHARS`), body ≤ 2 KB at the BFF, checked on the raw bytes before parsing (413) | Decided (probe) |
 | Retries | **None automatic** at the browser, BFF or API. A visitor's manual retry consumes quota | Decided (probe: exactly 1 upstream call) |
-| Cancellation | A closed browser tab does **not** cancel upstream work, and a provider call may still finish and bill. The in-flight lease is released only when the BFF's upstream call ends (answer, error or its 75 s timeout) | Decided |
+| Cancellation | A closed browser tab, BFF timeout or terminated function does **not** prove the Azure/provider work stopped. Release the lease only after a completed response or definitive upstream error. On timeout, disconnect or process death, leave it for expiry | Decided |
 
 #### 8.3.1 Admission: one atomic script, one lease per request
 
@@ -206,19 +206,19 @@ If the Azure subscription is still the Day 23 free trial (spending limit `On`), 
 - a `DECR` does not say *which* request ended, so a double or late release corrupts the count.
 
 **Decided: one lease per request, in a Redis sorted set** (`inflight`):
-- a **member** is one request's random lease id. Its **score** is the time the lease expires (`now + 120 s`, in ms);
+- a **member** is one request's random lease id. Its **score** is the time the lease expires. The provisional lease is 180 s; Day 29 must verify that it is longer than the measured cold-start + provider-timeout + cleanup path, not merely longer than Vercel `maxDuration`;
 - **admission** is one Lua script. Redis runs a script atomically: no other command runs between its steps.
   1. `ZREMRANGEBYSCORE inflight -inf <now>` drops expired leases.
   2. If `ZCARD inflight` ≥ 2, or the global day counter or this client's day counter is at its cap: refuse (`busy`) and change nothing.
   3. Otherwise: `ZADD inflight <expiry> <lease id>`, `INCR` both day counters (each with an `EXPIRE` after its day ends), and accept.
 
   The script checks every cap before it changes anything, so a refusal reserves nothing and no rollback `DECR` is needed;
-- **release:** `ZREM inflight <lease id>` in a `finally`, when the BFF's upstream call ends (answer, error or timeout). Releasing twice, or after expiry, is harmless;
-- **lease TTL (120 s) > Vercel `maxDuration` (100 s).** The platform stops a function before its lease can expire, so expiry only ever reclaims the lease of a function that died without releasing it. If `maxDuration` is raised, the lease TTL must be raised with it;
-- `now` is passed in by the BFF, not read inside the script. Clock skew between function instances is milliseconds, against a 120 s lease;
+- **release:** `ZREM inflight <lease id>` only after a completed upstream response or a definitive upstream error. Releasing twice, or after expiry, is harmless. A BFF timeout, browser disconnect or function termination does **not** release: the backend/provider may still be running, so the lease remains until expiry;
+- **lease TTL:** provisional 180 s. It must exceed the measured worst-case continuation from admission (including cold start and the provider's 60 s timeout) with a safety buffer. Comparing it only with Vercel `maxDuration` is insufficient because Azure work can continue after the Vercel function stops. If any component timeout increases, this TTL must be re-derived;
+- `now` is passed in by the BFF, not read inside the script. Clock skew between function instances is milliseconds against this lease;
 - the day counters count attempts: a request that fails upstream is not refunded (the same rule as a manual retry).
 
-**Residual:** after the BFF's 75 s timeout, the API may still be working on that request while its lease is already released. The replica can then briefly hold more than 2 requests. The daily cap still bounds the number of LLM calls, and max 1 replica bounds compute.
+**Residual:** after a BFF timeout, a lease may conservatively occupy a slot until expiry even if Azure stopped immediately. That can temporarily reduce availability, but it fails closed for concurrency and spend. Day 29 measures the end-to-end continuation window and confirms the 180 s provisional TTL before public chat is enabled.
 
 ### 8.4 Timeouts and cold start
 

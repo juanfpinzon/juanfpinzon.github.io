@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Juan Fernando Pinzon — CV (October 2026)</title>
+<meta name="description" content="CV of Juan Fernando Pinzon, ML/AI engineer in Barcelona: production machine learning at PepsiCo since 2022, applied ML research since 2019, and hands-on RAG and agent engineering (ProcureRAG).">
+<meta name="author" content="Juan Fernando Pinzon">
+<style>
+:root { color-scheme: light; --ink: #000000; --navy: #1F3864; --link: #1155CC; --muted: #595959; --rule: #A6A6A6; --paper: #FFFFFF; }
+html { background: var(--paper); }
+body {
+  margin: 0 auto; max-width: 48rem; padding: 2rem 1rem 3rem;
+  font-family: Calibri, Carlito, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 1rem; line-height: 1.45; color: var(--ink); background: var(--paper);
+  overflow-wrap: break-word;
+}
+h1, h2, h3, p, ul { margin: 0; }
+h1 { font-size: 1.75rem; line-height: 1.2; text-align: center; text-transform: uppercase; }
+.headline { font-size: 1.1rem; font-weight: 700; color: var(--navy); text-align: center; margin-top: .15rem; }
+.contact { text-align: center; margin-top: .25rem; }
+h2 { font-size: 1.1rem; color: var(--navy); text-transform: uppercase; border-bottom: 1px solid var(--rule); padding-bottom: .15em; margin: 1.4em 0 .5em; }
+h3 { font-size: 1rem; margin: .9em 0 .1em; }
+h3 .dates { font-weight: 400; }
+.sep { margin: 0 .15em; }
+.where, .note { font-style: italic; color: var(--muted); font-size: .95rem; }
+.note a { font-style: normal; }
+.skill { margin-bottom: .35em; }
+ul { padding-left: 1.4em; }
+li { margin: .2em 0; }
+cite { font-style: italic; }
+a { color: var(--link); text-decoration: underline; text-underline-offset: .12em; }
+a:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+.skip { position: absolute; left: -10000px; top: 0; }
+.skip:focus { left: 1rem; top: 1rem; padding: .5rem .75rem; background: var(--paper); border: 2px solid var(--navy); z-index: 1; }
+
+/* Print = the A4 PDF. Sizes and spacing reproduce the docx exactly (twips / 20 = pt). */
+@media print {
+  @page { size: A4; margin: 0.45in 0.55in; }
+  /* No ligatures: they would put U+FB01-style glyphs ("ﬁrst") in the PDF text layer, which breaks
+     search, copy-paste and ATS keyword matching. Word does not apply them either. */
+  body { max-width: none; padding: 0; font-size: 10pt; line-height: 1.245;
+         font-variant-ligatures: none; font-feature-settings: "liga" 0, "clig" 0, "dlig" 0; }
+  .skip { display: none; }
+  h1 { font-size: 17pt; line-height: 1.22; margin: 0 0 1pt; }
+  .headline { font-size: 11pt; margin: 0 0 1pt; }
+  .contact { margin: 0 0 3pt; }
+  h2 { font-size: 11pt; line-height: 1.22; margin: 7pt 0 3pt; padding-bottom: 2pt; border-bottom-width: .75pt; }
+  h3 { font-size: 10pt; margin: 4.5pt 0 0; }
+  .sep { margin: 0 .25em; }
+  h3 .dates { margin-left: .25em; }
+  .where, .note { font-size: 9.5pt; margin: 0 0 1pt; }
+  .note a { font-size: 10pt; }
+  .skill { margin: 0 0 2pt; }
+  .summary { text-align: justify; }
+  ul { padding-left: 17pt; }
+  li { margin: 0 0 1pt; }
+  /* Keep each role (title, place, bullets) together and each section title with what follows.
+     Not "break-after: avoid" on h3: Chrome then lays the heading out on one page and moves it,
+     leaving empty tagged fragments behind (seen as a doubled bookmark). */
+  .role, li, .skill { break-inside: avoid; }
+  h2 { break-after: avoid; }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#cv-main">Skip to CV content</a>
+<header>
+<h1>Juan Fernando Pinzon</h1>
+<p class="headline">ML/AI Engineer <span class="sep">|</span> Machine Learning in Production <span class="sep">|</span> LLM Applications &amp; Agentic AI</p>
+<p class="contact">Barcelona, Spain <span class="sep">•</span> <a href="mailto:juancho704@gmail.com">juancho704@gmail.com</a> <span class="sep">•</span> <a href="https://www.linkedin.com/in/juanfpinzon">linkedin.com/in/juanfpinzon</a> <span class="sep">•</span> <a href="https://github.com/juanfpinzon">github.com/juanfpinzon</a> <span class="sep">•</span> <a href="https://juanfpinzon.github.io">juanfpinzon.github.io</a></p>
+</header>
+<main id="cv-main">
+<section aria-labelledby="h-summary">
+<h2 id="h-summary">Summary</h2>
+<p class="summary">ML/AI engineer working in machine learning and data science since 2019, with production forecasting at PepsiCo since 2022: XGBoost/LightGBM ensembles on millions of multi-country rows weekly, plus co-leading the governance, monitoring and retraining design that sustains them. Earlier, applied deep learning research and client proofs of concept in NLP, computer vision and time series; first author of a neural NER paper (2020), co-author of a causal time-series paper (AGI 2022). Procurement domain background since 2014. Now prototyping the agentic AI roadmap for PepsiCo Digital Procurement and building ProcureRAG, an independent, evidence-driven RAG and agent system: hand-built retrieval measured on a 93-query benchmark, a bounded LangGraph agent with human approval and guardrails, FastAPI/MCP serving, eval-gated CI/CD to Azure Container Apps.</p>
+</section>
+
+<section aria-labelledby="h-skills">
+<h2 id="h-skills">Technical Skills</h2>
+<p class="skill"><strong>Languages &amp; data:</strong> Python (Pandas, NumPy, Matplotlib, Seaborn), PySpark, SQL</p>
+<p class="skill"><strong>ML / DL (production and research, since 2019):</strong> PyTorch, scikit-learn, XGBoost, LightGBM, LSTM/RNN, transformers (BERT), ensembles, classical ML; NLP and Named Entity Recognition (NER), time-series forecasting, computer vision</p>
+<p class="skill"><strong>Production cloud &amp; MLOps (PepsiCo, since 2022):</strong> Azure Databricks, Azure Data Factory, Azure AI Foundry, model governance, monitoring and retraining pipelines, Power BI</p>
+<p class="skill"><strong>LLM &amp; RAG engineering (hands-on, ProcureRAG 2026):</strong> Retrieval from primitives (TF-IDF, BM25, dense embeddings, hybrid RRF, cross-encoder reranking); RAG evaluation (P@k/MRR/nDCG, DeepEval, RAGAS, LLM-as-judge, regression suites); LangGraph/LangChain agents (state graphs, checkpointing, human-in-the-loop); guardrails (OWASP LLM Top 10); LangSmith; OpenAI/OpenRouter APIs; Hugging Face</p>
+<p class="skill"><strong>Serving &amp; delivery (demonstrated in ProcureRAG):</strong> FastAPI, MCP, Docker, GitHub Actions CI/CD, Azure Container Apps (OIDC), pytest, uv, Git, Linux/Unix, REST APIs</p>
+<p class="skill"><strong>Automation &amp; apps:</strong> n8n, Streamlit</p>
+</section>
+
+<section aria-labelledby="h-experience">
+<h2 id="h-experience">Experience</h2>
+<div class="role">
+<h3><span class="role-title">Data Product Management Associate Manager</span> <span class="sep">|</span> <span class="role-org">PepsiCo</span> <span class="dates">Jan 2026 – Present</span></h3>
+<p class="where">Barcelona, Spain</p>
+<ul>
+  <li>Define and prototype the agentic AI roadmap for Digital Procurement — RAG-based knowledge management agents and RaaS solutions — using Copilot declarative agents and PepsiCo’s internal AI platform; contribute to solution architecture and requirements definition for retrieval and orchestration design.</li>
+  <li>Built Python data pipelines automating HR data refreshes to ensure adoption KPIs are accurately reported to senior leadership across all Digital Procurement initiatives.</li>
+</ul>
+</div>
+<div class="role">
+<h3><span class="role-title">Data Science Sr. Analyst</span> <span class="sep">|</span> <span class="role-org">PepsiCo</span> <span class="dates">May 2022 – Jan 2026</span></h3>
+<p class="where">Barcelona, Spain</p>
+<ul>
+  <li>Built and operated ML-based forecasting (XGBoost, LightGBM, ensembles) running on millions of multi-country rows weekly for PepsiCo’s first Integrated Business Planning (IBP) implementation; co-led the Sustain model design covering governance, documentation, monitoring, and retraining processes. Stack: Azure Databricks, PySpark, Azure Data Factory. (IBP — Iberia, 2022–2024)</li>
+  <li>Designed a cross-functional analytics solution integrating Spend, R&amp;D, and BoM datasets and delivered a Power BI dashboard that cut analysis time from 4+ weeks to near-real-time. (Beyond Spend — Procurement Excellence, 2024–2025)</li>
+  <li>Co-led the European rollout of a global spend-visibility platform across 100+ procurement members, then took on a global stretch assignment owning transformation, change management, and adoption KPIs. (SpendHQ, 2025)</li>
+</ul>
+</div>
+<div class="role">
+<h3><span class="role-title">Machine Learning Researcher / DL Consultant</span> <span class="sep">|</span> <span class="role-org">Novel Software Systems</span> <span class="dates">Aug 2019 – May 2022</span></h3>
+<p class="where">Novosibirsk, Russia</p>
+<ul>
+  <li>Deep learning consultant within a global ML/DL team at a bioinformatics software company, delivering applied AI research and client proofs of concept across biomedical/life-sciences, HR tech, and financial sectors.</li>
+  <li>Built and evaluated neural NER models (Flair/PyTorch BiLSTM-CRF sequence taggers with stacked FastText and contextual string embeddings) for automated resume parsing, identifying that NER alone was insufficient without significant post-processing — first-author paper in Procesamiento del Lenguaje Natural (SEPLN), 2020, with a public 545-CV annotated dataset.</li>
+  <li>Co-developed ML/DL models (LSTM ensembles, XGBoost, Random Forest) for cryptocurrency market prediction, integrating order book, market, and social-sentiment data; contributed to a PyTorch backtesting framework — published in the AGI 2022 proceedings (Springer LNCS, 2023).</li>
+</ul>
+</div>
+<div class="role">
+<h3><span class="role-title">Business / Systems Analyst</span> <span class="sep">|</span> <span class="role-org">ITMS</span> <span class="dates">Nov 2018 – Aug 2019</span></h3>
+<p class="where">Novosibirsk, Russia</p>
+<ul>
+  <li>Gathered requirements and supported QA for blockchain and cryptocurrency projects, translating stakeholder needs into system specifications.</li>
+</ul>
+</div>
+<div class="role">
+<h3><span class="role-title">Production Planning Analyst</span> <span class="sep">|</span> <span class="role-org">Aritex de Colombia S.A.S.</span> <span class="dates">Aug – Dec 2016</span></h3>
+<p class="where">Cali, Colombia</p>
+<ul>
+  <li>Established the Production Programming function and automated ERP data extraction and reporting for real-time performance monitoring.</li>
+</ul>
+</div>
+<div class="role">
+<h3><span class="role-title">Procurement &amp; Inventory Analyst</span> <span class="sep">|</span> <span class="role-org">STF Group</span> <span class="dates">Jan 2014 – Jul 2016</span></h3>
+<p class="where">Cali, Colombia</p>
+<ul>
+  <li>Progressive roles across master data, inventory, and textile procurement; introduced automated reporting and reduced obsolete inventory by 20%.</li>
+</ul>
+</div>
+</section>
+
+<section aria-labelledby="h-projects">
+<h2 id="h-projects">Projects</h2>
+<div class="role">
+<h3><span class="role-title">ProcureRAG — Procurement-Intelligence Copilot (RAG + Agents)</span> <span class="sep">|</span> <span class="role-org">Independent Project</span> <span class="dates">Sep 2026 – Present</span></h3>
+<p class="note">Open source: <a href="https://github.com/juanfpinzon/ProcureRAG">github.com/juanfpinzon/ProcureRAG</a> (Python 3.11). A production-shaped RAG system that answers procurement policy questions with cited sources over a synthetic 34-document knowledge base; no employer data or affiliation.</p>
+<ul>
+  <li>Implemented retrieval from primitives (inverted index, TF-IDF, BM25, dense embeddings, Reciprocal Rank Fusion, cross-encoder reranking) and benchmarked nine configurations on a 93-query labeled set: reranked hybrid retrieval reached P@1 0.978 / MRR@10 0.984 vs. 0.871 / 0.924 for TF-IDF (ranking metrics, not answer accuracy); failures root-caused to individual queries.</li>
+  <li>Added an evaluation layer (citation and grounding checks, DeepEval/RAGAS LLM-as-judge, failure taxonomy, CI regression suite) and a bounded LangGraph agent: evidence-gap-triggered second retrieval pass, interrupt-based human approval, checkpointing, LangSmith-linked traces, and mutation-tested guardrails mapped to the OWASP LLM Top 10.</li>
+  <li>Served the same guarded pipeline through a FastAPI API (SSE progress events, role-based filtering, rate limiting) and a read-only MCP tool; non-root Docker image; 430+ tests; eval-gated GitHub Actions CI (three required checks); deployed by image digest to Azure Container Apps via an OIDC-authenticated workflow, with a tested rollback (learning deployment, since torn down).</li>
+</ul>
+</div>
+<div class="role">
+<h3><span class="role-title">OpenClaw / Hermes — Self-Hosted AI Agent Setup</span> <span class="sep">|</span> <span class="role-org">Personal Project</span> <span class="dates">2026 – Present</span></h3>
+<p class="where">Self-hosted on a personal Linux/Proxmox homelab server</p>
+<ul>
+  <li>Configured and extended the open-source OpenClaw and Hermes Agent frameworks (credited upstream) with personally authored Python automations: Linear, GitHub and Telegram connectors, an LLM-based pull-request review watchdog, news and newsletter pipelines, a Markdown shared-memory vault and context-engineering conventions for coding agents.</li>
+</ul>
+</div>
+</section>
+
+<section aria-labelledby="h-education">
+<h2 id="h-education">Education</h2>
+<div class="role">
+<h3><span class="role-title">M.Sc. — Big Data Analytics &amp; AI</span> <span class="sep">|</span> <span class="role-org">Novosibirsk State University (NSU), Novosibirsk, Russia</span> <span class="dates">2017 – 2019</span></h3>
+</div>
+<div class="role">
+<h3><span class="role-title">B.B.A. — Business Administration</span> <span class="sep">|</span> <span class="role-org">Universidad ICESI, Cali, Colombia</span> <span class="dates">2015</span></h3>
+</div>
+</section>
+
+<section aria-labelledby="h-certifications">
+<h2 id="h-certifications">Certifications &amp; Courses</h2>
+<ul>
+  <li>Boot.dev — Learn Retrieval Augmented Generation (certificate of completion, Sep 2026)</li>
+  <li>Hugging Face — The MCP Course, Unit 1: Fundamentals of MCP (certificate of achievement, Oct 2026)</li>
+  <li>Microsoft Azure AI Engineer Associate (in progress)</li>
+  <li>Also: AI Automation — Build LLM Apps &amp; AI Agents with n8n and APIs; Scalable Machine Learning on Big Data using Apache Spark; Machine Learning (Coursera); The Foundation Negotiator; Internal Coach (PepsiCo, 2025)</li>
+</ul>
+</section>
+
+<section aria-labelledby="h-publications">
+<h2 id="h-publications">Publications</h2>
+<ul>
+  <li>Pinzon, J. F., Krainikovsky, S., &amp; Samarev, R. (2020). “Limitations of Neural Networks-based NER for Resume Data Extraction.” <cite>Procesamiento del Lenguaje Natural</cite> (SEPLN), 65, 53–58. First author. Public dataset (545 annotated CVs): <a href="https://github.com/juanfpinzon/resume-dataset">github.com/juanfpinzon/resume-dataset</a></li>
+  <li>Kolonin, A., Raheman, A., Vishwas, M., Ansari, I., Pinzon, J., &amp; Ho, A. (2023). “Causal Analysis of Generic Time Series Data Applied for Market Prediction.” In <cite>Artificial General Intelligence (AGI 2022) proceedings</cite>, Springer LNCS, pp. 30–39. DOI: <a href="https://doi.org/10.1007/978-3-031-19907-3_4">doi.org/10.1007/978-3-031-19907-3_4</a>. Preprint (2022): <a href="https://arxiv.org/abs/2204.12928">arXiv:2204.12928</a></li>
+</ul>
+</section>
+
+<section aria-labelledby="h-languages">
+<h2 id="h-languages">Languages</h2>
+<p>Spanish (Native) <span class="sep">•</span> English (Full Professional) <span class="sep">•</span> Russian (Elementary)</p>
+</section>
+</main>
+</body>
+</html>

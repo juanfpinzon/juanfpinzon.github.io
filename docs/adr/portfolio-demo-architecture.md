@@ -2,6 +2,7 @@
 
 - **Status:** **Accepted** for Day 27–29 implementation planning (2026-10-26). **Provisioning and any paid call are blocked** until the items in §11 are closed.
 - **Owner / decider:** Juan F. Pinzon. **Reviewer:** Hermes (HER-294, gate HER-271).
+- **Review state:** accepted by the owner. Hermes review round 1 (2026-10-26) was made against portfolio `52bb49d` and ProcureRAG `8323b48`. Its findings on this ADR (the body limit, the in-flight counter, malformed upstream replies) are answered in §6.1, §6.3 and §8.3.1 in the follow-up commits. **Awaiting Hermes re-review**, and HER-294 stays open until then.
 - **Evidence:**
   - ProcureRAG `src/api.py` (the `QueryRequest` / `QueryResponse` contract and its "Honest limits");
   - ProcureRAG `scripts/portfolio_contract_probe.py` (the no-paid contract probe);
@@ -58,7 +59,7 @@ Browser (static pages + chat form)
   │  POST /api/chat  {"question": "..."}             same origin, no secrets in the bundle
   ▼
 Vercel BFF route handler (Node.js runtime)
-  │  kill switch → body ≤ 2 KB / question 1–500 chars → per-client + global quota reservation
+  │  kill switch → body ≤ 2 KB / question 1–500 chars → one atomic admission (in-flight lease + global + per-client quota)
   │  → fixed role "requester" → preset text ⇒ query_id, else none → never a decision
   │  POST {PROCURERAG_API_URL}/query   Authorization: Bearer <service token>
   ▼
@@ -99,6 +100,8 @@ Local AI host (Claude Code, Inspector) → stdio MCP adapter (src/mcp_server.py)
 
 `POST /api/chat`, JSON `{"question": string}`, 1–500 characters, body ≤ 2 KB. **Any other key is a 422, and nothing is sent upstream.** That covers `role`, `query_id` and `decision` (probe: "browser sends a role -> 422 before upstream").
 
+The 2 KB limit is checked on the **raw bytes, before parsing**, and answers 413. A 500-character question in valid JSON can be padded with whitespace to any size, and every check after parsing would accept it (probe: "body over 2 KB (whitespace padding) -> 413 before parsing"). The BFF stops reading at 2 KB + 1 byte: it does not call `request.json()` first, because that reads the whole body. A `Content-Length` check alone is not enough, since a chunked request has none. A body that is not valid JSON is a 422.
+
 ### 6.2 BFF → API
 
 The BFF sends `POST /query` with `{"query": question, "role": "requester"}`, plus `"query_id"` **only** when the question equals an approved preset text character for character. It is validated against `api.QueryRequest` before sending. It never carries a `decision`. JSON `/query` is the first vertical slice. `/query/stream` (stage-progress SSE, **not token streaming**) is stretch, and is not exposed to the browser in the first slice.
@@ -124,14 +127,15 @@ None of the four has a follow-up pass, so none can reach `pending_approval` (che
 | `not_generated` | 200 | `not_generated` | fixed "retrieval-only" message and sources. API text hidden (operator detail) |
 | `blocked` | 200 | `blocked` | API refusal text, guard names |
 | `pending_approval` | 200 | `pending_approval` | fixed "needs a reviewer, not offered in the public demo". API text (which invites a `decision`) and `approval_request` are **dropped** |
-| 422 (BFF or API) | 422 | `invalid_question` | fixed guidance |
-| 429 (BFF quota or API limit) | 429 | `busy` | fixed text, `retry_after` if known. No automatic retry |
+| 422 (BFF or API), or a body that is not valid JSON | 422 | `invalid_question` | fixed guidance |
+| body over 2 KB (BFF, before parsing) | 413 | `invalid_question` | fixed guidance |
+| 429 (BFF quota or API limit) | 429 | `busy` | fixed text, plus `retry_after` when `Retry-After` is a whole number of seconds. A date form, a negative number or garbage is dropped, never a crash. No automatic retry |
 | timeout | 504 | `timed_out` | "may have been starting up, try again in a minute" |
-| connection failure, 5xx, kill switch | 503 | `unavailable` | "demo offline". The case study and code links stay |
+| connection failure, any other upstream status (500 provider failure, 401 refused credential, …), a malformed upstream 200 (not JSON, or not a `QueryResponse`), kill switch | 503 | `unavailable` | "demo offline". The case study and code links stay. The BFF logs the status and the validation error type, never the body |
 
 Never forwarded: `run_id` (trace rows are not persisted, and raw traces may be sensitive), `approval_request`, and the findings' `detail` text. **Sources are IDs only** (`source_id`, `doc_id`, `chunk_id`, `cited`). There are no snippets, file URLs or trace links. A Day 28 option, not decided: a build-time `doc_id → title` map generated from the synthetic corpus, reviewed before use.
 
-All ten rows are exercised by the no-paid probe (exit 0, 2026-10-26).
+All eleven rows are exercised by the no-paid probe (19 scenarios, exit 0, 2026-10-26), including an upstream 500 from the real API, a cut-off 200, a wrong-shape 200 and a date-form `Retry-After`.
 
 ## 7. Public data, role and trust policy
 
@@ -186,13 +190,35 @@ If the Azure subscription is still the Day 23 free trial (spending limit `On`), 
 | Global daily cap | `floor(LLM ceiling ÷ 30 ÷ worst-case cost of one request)`. The worst case is computed from the chosen model's published price × (max context + public output cap). Until computed, **no paid request is allowed** | Day 28 (blocks paid smoke) |
 | Public output cap | Lower than the code's current `MAX_ANSWER_TOKENS = 3000`, set by configuration for the public deployment, so that the worst case fits the US$5 ceiling | Day 28 |
 | Model | Picked against the ceiling. A US$5/month ceiling with an expensive model means single-digit daily requests. Record the trade-off | Day 28 |
-| Quota store | Persistent, atomic, outside process memory. A Redis-compatible store on the BFF side (e.g. via the Vercel Marketplace; free tier to verify): a day counter with `INCR`, then a `DECR` rollback when it goes over the cap; an in-flight counter likewise, with a 120 s TTL so a crashed request cannot hold a slot forever. Resetting a cookie bypasses nothing | Day 29 |
+| Quota store | Persistent, atomic, outside process memory. A Redis-compatible store on the BFF side (e.g. via the Vercel Marketplace; free tier and Lua scripting (`EVAL`) to verify). Every admission is one atomic script (§8.3.1). Resetting a cookie bypasses nothing | Day 29 |
 | Store unavailable | **Fail closed**: the `busy`/`unavailable` state, nothing sent upstream | Decided |
-| In-flight cap | 2 concurrent upstream calls (one 1-vCPU replica) | Decided |
+| In-flight cap | 2 concurrent upstream calls (one 1-vCPU replica), held as one lease per request (§8.3.1), not as a counter | Decided |
 | Per-client cap | 10 questions/day per client, keyed by a salted hash of the client IP from Vercel's platform-set headers, never from a browser-supplied header. Weak (NAT, rotation): the global cap is the real spend control | Decided, Day 29 implementation |
-| Input / body | Question 1–500 chars (same as `api.MAX_QUERY_CHARS`), body ≤ 2 KB at the BFF | Decided (probe) |
+| Input / body | Question 1–500 chars (same as `api.MAX_QUERY_CHARS`), body ≤ 2 KB at the BFF, checked on the raw bytes before parsing (413) | Decided (probe) |
 | Retries | **None automatic** at the browser, BFF or API. A visitor's manual retry consumes quota | Decided (probe: exactly 1 upstream call) |
-| Cancellation | A closed browser tab does **not** cancel upstream work, and a provider call may still finish and bill. The quota slot is released only when the upstream call ends | Decided |
+| Cancellation | A closed browser tab does **not** cancel upstream work, and a provider call may still finish and bill. The in-flight lease is released only when the BFF's upstream call ends (answer, error or its 75 s timeout) | Decided |
+
+#### 8.3.1 Admission: one atomic script, one lease per request
+
+**Rejected: one in-flight counter with a TTL** (the first Day 26 draft). A single key cannot track requests that start and end at different times:
+- if each admission refreshes the key's TTL, a slot leaked by a crashed function lives on for as long as other traffic keeps arriving;
+- if admissions do not refresh it, the key can expire while later requests are still running. The count restarts at 0, and more than 2 calls get in;
+- a `DECR` does not say *which* request ended, so a double or late release corrupts the count.
+
+**Decided: one lease per request, in a Redis sorted set** (`inflight`):
+- a **member** is one request's random lease id. Its **score** is the time the lease expires (`now + 120 s`, in ms);
+- **admission** is one Lua script. Redis runs a script atomically: no other command runs between its steps.
+  1. `ZREMRANGEBYSCORE inflight -inf <now>` drops expired leases.
+  2. If `ZCARD inflight` ≥ 2, or the global day counter or this client's day counter is at its cap: refuse (`busy`) and change nothing.
+  3. Otherwise: `ZADD inflight <expiry> <lease id>`, `INCR` both day counters (each with an `EXPIRE` after its day ends), and accept.
+
+  The script checks every cap before it changes anything, so a refusal reserves nothing and no rollback `DECR` is needed;
+- **release:** `ZREM inflight <lease id>` in a `finally`, when the BFF's upstream call ends (answer, error or timeout). Releasing twice, or after expiry, is harmless;
+- **lease TTL (120 s) > Vercel `maxDuration` (100 s).** The platform stops a function before its lease can expire, so expiry only ever reclaims the lease of a function that died without releasing it. If `maxDuration` is raised, the lease TTL must be raised with it;
+- `now` is passed in by the BFF, not read inside the script. Clock skew between function instances is milliseconds, against a 120 s lease;
+- the day counters count attempts: a request that fails upstream is not refunded (the same rule as a manual retry).
+
+**Residual:** after the BFF's 75 s timeout, the API may still be working on that request while its lease is already released. The replica can then briefly hold more than 2 requests. The daily cap still bounds the number of LLM calls, and max 1 replica bounds compute.
 
 ### 8.4 Timeouts and cold start
 
@@ -216,7 +242,7 @@ A question sent to a cold replica can still exceed 75 s. It then ends in `timed_
 
 ### 8.5 Logging, tracing and retention
 
-- **BFF logs:** timestamp, route, state, HTTP status, latency, `preset id` or `free_text`, and quota counters. **Never** the question, the answer or a raw IP.
+- **BFF logs:** timestamp, route, state, HTTP status, latency, `preset id` or `free_text`, and quota counters. An upstream protocol failure (a malformed 200) is logged as the upstream status and the validation error type. **Never** the question, the answer, an upstream body or a raw IP.
 - **API:** LangSmith tracing off (`LANGSMITH_TRACING=false`, `LANGSMITH_TRACING_V2=false`). Trace rows are built but not persisted (existing). Uvicorn access logs hold the path, status and the BFF's egress IP, never bodies.
 - **Azure Log Analytics:** keep the platform default retention (30 days; confirm on Day 29). No raw traces, prompt logs or transcripts are retained or published.
 - **Disclosure** on the demo: synthetic data; questions go to a third-party model provider; do not enter personal or confidential data. The provider's data-retention and no-training settings are chosen on Day 28 and named in the disclosure.
@@ -263,7 +289,7 @@ A question sent to a cold replica can still exceed 75 s. It then ends in `timed_
 | 2 | Model choice, worst-case cost per request, public output cap, global daily cap (§8.3) | Juan | any paid call | Day 28 |
 | 3 | OpenRouter key credit limit available and set to US$5 | Juan | paid smoke | Day 28 |
 | 4 | Vercel account, Hobby terms fit, `dub1` region | Juan | Vercel deploy | Day 28 |
-| 5 | Quota store provider, free tier, atomic implementation | Juan | public chat | Day 29 |
+| 5 | Quota store provider, free tier, Lua scripting support, and the §8.3.1 admission script with tests | Juan | public chat | Day 29 |
 | 6 | Azure subscription status (trial expiry/credit/spending limit) and worst-case monthly cost vs US$10 | Juan | Azure provisioning | Day 29 |
 | 7 | Kill-switch location, and a deployed test | Juan | public chat | Day 29 |
 | 8 | Provider data-retention/no-training settings and disclosure text | Juan | public chat | Day 29 |

@@ -88,14 +88,14 @@ Global header (text links, no icon-only links): `Juan F. Pinzon` (home) · `Proc
 2. **Experience summary:** three rows. PepsiCo Data Product Management Associate Manager (2026–). PepsiCo Data Science Sr. Analyst, production forecasting (2022–2026). Novel Software Systems ML researcher (2019–2022). The line "Earlier: procurement and operations roles (2014–2019)" links to `/about`.
 3. **Flagship card, ProcureRAG:**
    - one sentence: independent, synthetic data;
-   - three evidence chips: "P@1 0.978 retrieval ranking (93 queries)", "445 tests + eval-gated CI", "guarded FastAPI + local MCP";
+   - three evidence chips: "P@1 0.978 retrieval ranking (93 queries)", "430+ tests + eval-gated CI", "guarded FastAPI + local MCP". The test chip says "430+" (the same as the CV) so it does not go stale as tests are added; the case study gives the exact count with its ProcureRAG commit and date;
    - links: `Case study` and `Code`;
    - demo status written honestly: "Live demo: in progress" until Day 29 evidence exists.
 4. **Selected work and research:** four cards, each laid out as problem → Juan's role → result → link:
    - NER paper and dataset;
    - market time-series paper;
    - DICOM2STL, with upstream credit;
-   - U-NET spine PoC (text only).
+   - U-NET spine PoC (text only by default; `img55.png` is cleared for use, inventory §5.1, so adding it is Juan's Day 27 choice).
 
    Then one archive line: CS231n.
 5. **Credentials (small):** two text lines (Boot.dev RAG; HF MCP Unit 1), each linked to the matching ProcureRAG evidence.
@@ -151,7 +151,7 @@ Each item in order, with a sticky in-page table of contents on desktop:
 │ │ Procurement copilot over │ │
 │ │ a synthetic KB.          │ │
 │ │ P@1 0.978 (retrieval)    │ │  mono chips, wrap
-│ │ 445 tests · eval CI      │ │
+│ │ 430+ tests · eval CI     │ │
 │ │ Case study → · Code →    │ │
 │ │ Live demo: in progress   │ │
 │ └──────────────────────────┘ │
@@ -188,7 +188,7 @@ Each item in order, with a sticky in-page table of contents on desktop:
 │ FLAGSHIP ─ ProcureRAG                                                │
 │ ┌──────────────────────────────────┬───────────────────────────────┐ │
 │ │ Procurement-intelligence copilot │ P@1 0.978  retrieval ranking  │ │
-│ │ over a synthetic knowledge base. │ 445 tests + eval-gated CI     │ │
+│ │ over a synthetic knowledge base. │ 430+ tests + eval-gated CI    │ │
 │ │ Independent learning project.    │ FastAPI · Docker · local MCP  │ │
 │ │ Case study →   Code →            │ Live demo: in progress        │ │
 │ └──────────────────────────────────┴───────────────────────────────┘ │
@@ -243,6 +243,7 @@ Mobile `/procurerag` uses one column, and the table of contents becomes a collap
   - decorative images use `alt=""`;
   - no images of text;
   - no certificate images (inventory decision).
+- **Documents:** the CV PDF (`/cv.pdf`) is a tagged PDF: H1/H2/H3 headings, reading order, link descriptions, `lang` en and a document title. It is printed from the semantic HTML CV by headless Chrome and checked before publishing (`pdfinfo` reports `Tagged: yes`). A "Save as PDF" export from macOS, Word or Google Docs is untagged and fails this rule.
 - **Motion:** none required to read anything. `prefers-reduced-motion` removes all transitions. No autoplay.
 - **Chat state:** each result is announced through one `aria-live="polite"` region. The submit button shows a busy state with text ("Waiting for the service…"), not a spinner alone.
 
@@ -274,7 +275,7 @@ The browser contract is the one checked by ProcureRAG's `scripts/portfolio_contr
 
 **In:**
 - `/`, `/procurerag` and `/about`, with real content from the inventory;
-- the corrected CV link (`docs/JuanFernandoPinzon_CV_Oct2026.pdf`, served as `/cv.pdf`) and the new photo (`assets/img/pic-juan.png`, optimized);
+- the corrected CV link (`docs/JuanFernandoPinzon_CV_Oct2026.pdf`, served as `/cv.pdf`) and the new photo: a deliberate head-and-shoulders crop of `assets/img/pic-juan.png` (the source is a full upper-body portrait, so the face would be tiny in an avatar), exported as an optimized WebP/AVIF, not just the 1.9 MB original converted;
 - the design tokens, light and dark;
 - the accessibility contract above;
 - the demo section in its **static, no-JS form only**, labelled "in progress".

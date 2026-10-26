@@ -29,3 +29,18 @@ description: >
 show_downloads: false
 google_analytics:
 theme: jekyll-theme-minimal
+# Day 26 planning docs are working contracts, not site pages. While this repo is
+# still built by legacy Jekyll from `master`, keep them out of the published
+# site. Setting `exclude` replaces Jekyll's default list, so the defaults are
+# repeated first.
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/
+  - DESIGN.md
+  - docs/portfolio-content-inventory.md
+  - docs/adr/

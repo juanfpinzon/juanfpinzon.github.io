@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono, Source_Serif_4 } from "next/font/google";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { hero, person } from "@/content/site";
+import { shareMetadata } from "./share-metadata";
 import "./globals.css";
 
 /*
@@ -41,19 +42,27 @@ const jetbrainsMono = JetBrains_Mono({
  * `title.template` lets each page export a short title ("About") that renders
  * as "About — Juan F. Pinzon". `title.default` is used by the home page.
  *
+ * Share tags: `shareMetadata()` adds text-only Open Graph and Twitter card
+ * tags. The home page exports no metadata, so it inherits these; the other two
+ * routes build their own (see app/share-metadata.ts for why).
+ *
  * Deliberately NOT set on Day 27:
- * - `metadataBase`, canonical URLs, Open Graph/Twitter images, robots.txt and
- *   sitemap.xml. All of them need the public URL, which is still an open ADR
- *   decision (§11 #9: `vercel.app` plus a `github.io` redirect, or a custom
- *   domain). Publishing a canonical to a URL that may change is worse than
- *   publishing none.
+ * - `metadataBase`, canonical URLs, `og:url`, Open Graph/Twitter images,
+ *   robots.txt and sitemap.xml. All of them need the public URL, which is
+ *   still an open ADR decision (§11 #9: `vercel.app` plus a `github.io`
+ *   redirect, or a custom domain). Publishing a canonical to a URL that may
+ *   change is worse than publishing none.
  */
+const homeTitle = `${person.name} — ML/AI engineer`;
+const homeDescription = `${hero.valueProposition} Based in ${person.location}.`;
+
 export const metadata: Metadata = {
   title: {
-    default: `${person.name} — ML/AI engineer`,
+    default: homeTitle,
     template: `%s — ${person.name}`,
   },
-  description: `${hero.valueProposition} Based in ${person.location}.`,
+  description: homeDescription,
+  ...shareMetadata(homeTitle, homeDescription),
 };
 
 /*

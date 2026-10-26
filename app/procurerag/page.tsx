@@ -15,6 +15,8 @@ import {
   roadmap,
   type LaneId,
 } from "@/content/procurerag";
+import { person } from "@/content/site";
+import { shareMetadata } from "../share-metadata";
 
 /*
  * `/procurerag`: the technical path (DESIGN §3).
@@ -29,10 +31,15 @@ import {
  * needs client JavaScript.
  */
 
+const title = "ProcureRAG case study";
+const description =
+  "ProcureRAG, an independent learning project: a procurement-intelligence copilot over a synthetic knowledge base. Retrieval measured on 93 labeled queries, known failures and limits, and how to reproduce it. Live demo in progress.";
+
 export const metadata: Metadata = {
-  title: "ProcureRAG case study",
-  description:
-    "ProcureRAG, an independent learning project: a procurement-intelligence copilot over a synthetic knowledge base. Retrieval measured on 93 labeled queries, known failures and limits, and how to reproduce it. Live demo in progress.",
+  title,
+  description,
+  // The share tags need the full title: `title.template` only applies to <title>.
+  ...shareMetadata(`${title} — ${person.name}`, description),
 };
 
 /** The in-page sections, in reading order. Used by both tables of contents. */

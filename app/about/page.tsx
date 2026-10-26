@@ -4,6 +4,7 @@ import { ExternalLink } from "@/components/ExternalLink";
 import { earlierRoles, education, languages, recentRoles, type Role } from "@/content/experience";
 import { links, person } from "@/content/site";
 import { credentials, publications, secondaryProject } from "@/content/work";
+import { shareMetadata } from "../share-metadata";
 
 /*
  * `/about`: the complete context (DESIGN §3, route list).
@@ -16,9 +17,14 @@ import { credentials, publications, secondaryProject } from "@/content/work";
  * Server Component, prerendered at build time, no client JavaScript.
  */
 
+const title = "About";
+const description = `Experience, education, research and publications, learning credentials, CV and contact for ${person.name}, ML/AI engineer in ${person.location}.`;
+
 export const metadata: Metadata = {
-  title: "About",
-  description: `Experience, education, research and publications, learning credentials, CV and contact for ${person.name}, ML/AI engineer in ${person.location}.`,
+  title,
+  description,
+  // The share tags need the full title: `title.template` only applies to <title>.
+  ...shareMetadata(`${title} — ${person.name}`, description),
 };
 
 /** One role: an h3 with title and employer, a dates/location line, and the approved bullets. */

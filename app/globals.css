@@ -1,0 +1,792 @@
+/*
+ * Global styles for the portfolio preview.
+ *
+ * Everything visual comes from DESIGN.md §2 ("editorial light"). The file is
+ * ordered from general to specific:
+ *   1. design tokens (colour, type, space) as CSS custom properties
+ *   2. dark-mode token swap (prefers-color-scheme only; no manual toggle)
+ *   3. base element styles
+ *   4. accessibility helpers (focus ring, skip link, reduced motion)
+ *   5. layout (container, header, footer, grids)
+ *   6. components (cards, chips, lane labels, tables, figures)
+ *
+ * One plain stylesheet keeps the whole design system readable in one place.
+ * There is no CSS framework: the token table in DESIGN.md maps 1:1 onto the
+ * variables below.
+ */
+
+/* ------------------------------------------------------------------------ */
+/* 1. Design tokens                                                          */
+/* ------------------------------------------------------------------------ */
+
+:root {
+  /* Colour. Contrast ratios (WCAG 2.x, recorded in DESIGN.md §2):
+     ink 16.2:1 on bg, ink-muted 6.7:1 on bg, accent 7.2:1 on bg,
+     focus 4.7:1 on bg, border 3.5:1 on bg (non-text, needs 3:1). */
+  --color-bg: #faf8f3;
+  --color-surface: #f1ede4;
+  --color-ink: #1c1b19;
+  --color-ink-muted: #5c5850;
+  --color-accent: #0f5e5a;
+  --color-on-accent: #ffffff;
+  --color-border: #8c8578;
+  --color-focus: #b4540a;
+  --color-ok: #2f6b3a;
+  --color-warn: #8a5a00;
+  --color-danger: #a3302b;
+
+  /* Type. The three font variables are set by next/font in app/layout.tsx;
+     the fallbacks apply if a font file has not loaded yet. */
+  --font-heading: var(--font-source-serif), Georgia, "Times New Roman", serif;
+  --font-body: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --step--1: 0.875rem;
+  --step-0: 1.0625rem; /* body text */
+  --step-1: 1.25rem;
+  --step-2: 1.5rem;
+  --step-3: clamp(1.75rem, 1.4rem + 1.5vw, 2.25rem);
+  --step-4: clamp(2rem, 1.5rem + 2.5vw, 3rem); /* hero */
+
+  /* Space: 4, 8, 12, 16, 24, 32, 48, 64, 96 px. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+  --space-9: 6rem;
+
+  /* Shape and layout. */
+  --radius-control: 4px;
+  --radius-card: 8px;
+  --measure: 68ch;
+  --container-max: 1120px;
+  --gutter: 20px;
+
+  color-scheme: light dark;
+}
+
+/* ------------------------------------------------------------------------ */
+/* 2. Dark mode: a token swap, driven only by the operating-system setting   */
+/* ------------------------------------------------------------------------ */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Recorded ratios: ink 15.1:1, ink-muted 7.2:1, accent 8.7:1,
+       focus 9.0:1, border 3.8:1, all on the dark bg. */
+    --color-bg: #161514;
+    --color-surface: #211f1d;
+    --color-ink: #ede9e1;
+    --color-ink-muted: #a8a296;
+    --color-accent: #6cc1b8;
+    --color-on-accent: #0b1f1e;
+    --color-border: #77716a;
+    --color-focus: #f2a65a;
+    --color-ok: #7cc48a;
+    --color-warn: #e0b252;
+    --color-danger: #f08a80;
+  }
+}
+
+/* ------------------------------------------------------------------------ */
+/* 3. Base elements                                                          */
+/* ------------------------------------------------------------------------ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* Never let the browser inflate text on rotation; keep the user's zoom. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--step-0);
+  line-height: 1.6;
+  /* Long URLs and IDs wrap instead of pushing the page sideways (reflow). */
+  overflow-wrap: break-word;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0 0 var(--space-4);
+}
+
+h1 {
+  font-size: var(--step-4);
+}
+
+h2 {
+  font-size: var(--step-3);
+  margin-top: var(--space-7);
+}
+
+h3 {
+  font-size: var(--step-1);
+  margin-top: var(--space-5);
+}
+
+p,
+ul,
+ol,
+dl {
+  margin: 0 0 var(--space-4);
+  /* Prose is left-aligned (never justified) and capped at a readable measure. */
+  max-width: var(--measure);
+}
+
+li + li {
+  margin-top: var(--space-2);
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+img,
+svg {
+  max-width: 100%;
+  height: auto;
+}
+
+code,
+kbd,
+pre {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+pre {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: var(--space-4);
+  max-width: 100%;
+  /* Long commands wrap instead of scrolling. A scrolling <pre> would be a
+     scroll region that keyboard users cannot reach, and the page must never
+     scroll sideways at 320 px (WCAG 1.4.10). */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------------------ */
+/* 4. Accessibility helpers                                                  */
+/* ------------------------------------------------------------------------ */
+
+/*
+ * Focus ring (DESIGN §2, WCAG 2.4.7 Focus Visible). The focus colour is only
+ * 1.5:1 against the accent fill, so the ring is drawn OUTSIDE the element with
+ * an offset, where it sits on bg or surface (4.7:1 light, 9.0:1 dark).
+ * `:focus-visible` shows it for keyboard users without flashing it on every
+ * mouse click. Nothing in this file ever removes the outline (a test in
+ * tests/accessibility.spec.ts enforces that).
+ */
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+/*
+ * Skip link (WCAG 2.4.1). It is the first focusable element on every page. It
+ * stays off-screen until it receives keyboard focus, then appears at the top
+ * left. It is moved, not hidden with display:none, so it stays focusable.
+ */
+.skip-link {
+  position: absolute;
+  left: var(--space-4);
+  top: -100px;
+  z-index: 10;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-radius: var(--radius-control);
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  top: var(--space-4);
+}
+
+/* Text that screen readers announce but sighted users do not need to see. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/*
+ * Motion (DESIGN §2): 150 ms ease-out on colour only, for hover/focus. Nothing
+ * on the page depends on it, and under "reduce motion" there is no transition
+ * at all.
+ */
+a,
+.button {
+  transition: color 150ms ease-out, background-color 150ms ease-out,
+    text-decoration-thickness 150ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ------------------------------------------------------------------------ */
+/* 5. Layout                                                                 */
+/* ------------------------------------------------------------------------ */
+
+.container {
+  width: 100%;
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --gutter: 32px;
+  }
+}
+
+/* Header: name on the left, three text links on the right. On narrow screens
+   the links wrap onto their own line instead of hiding behind a menu button,
+   so the header needs no JavaScript. */
+.site-header {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.site-header__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-5);
+  padding-block: var(--space-3);
+}
+
+.site-header__name {
+  font-family: var(--font-heading);
+  font-size: var(--step-1);
+  font-weight: 600;
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+.nav-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nav-list li + li {
+  margin-top: 0;
+}
+
+/* Header and footer links are targets on their own, not links inside a
+   sentence, so each gets a 44 px tall hit area (WCAG 2.5.8 needs 24 px). */
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: var(--space-1);
+}
+
+/* The skip link targets `<main id="main">`. Following an in-page link moves the
+   browser's "sequential focus starting point" to the target, so the next Tab
+   lands on the first link inside main. `main` needs no tabindex, and therefore
+   no focus-ring exception. */
+main {
+  display: block;
+  padding-block: var(--space-6) var(--space-8);
+}
+
+.site-footer {
+  border-top: 1px solid var(--color-border);
+  padding-block: var(--space-5);
+  color: var(--color-ink-muted);
+  font-size: var(--step--1);
+}
+
+.site-footer p {
+  margin-bottom: var(--space-2);
+}
+
+section {
+  margin-bottom: var(--space-7);
+}
+
+/* A section label in small capitals above a heading, e.g. "FLAGSHIP". */
+.eyebrow {
+  font-family: var(--font-body);
+  font-size: var(--step--1);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  margin: 0 0 var(--space-2);
+}
+
+.muted {
+  color: var(--color-ink-muted);
+}
+
+.small {
+  font-size: var(--step--1);
+}
+
+/* Two spacing utilities for the few places where a default margin is wrong. */
+.mt-0 {
+  margin-top: 0;
+}
+
+.mt-5 {
+  margin-top: var(--space-5);
+}
+
+/* Content-first breakpoints (DESIGN §2): one column below 768 px, two columns
+   at 768–1023 px, up to four from 1024 px. */
+.grid {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .grid--2,
+  .grid--4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid--4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Home hero: text plus photo, side by side from 768 px. */
+.hero {
+  display: grid;
+  gap: var(--space-5);
+  align-items: start;
+  margin-bottom: var(--space-7);
+}
+
+@media (min-width: 768px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+.hero__photo {
+  width: 160px;
+  height: 160px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--color-border);
+}
+
+@media (min-width: 1024px) {
+  .hero__photo {
+    width: 220px;
+    height: 220px;
+  }
+}
+
+.hero__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-5);
+  margin-top: var(--space-5);
+}
+
+/* Case-study layout: sticky "On this page" sidebar from 1024 px. */
+/*
+ * `minmax(0, 1fr)`, not plain `1fr`: a grid track's minimum defaults to its
+ * content's minimum width, so the 590 px metrics table would stretch the whole
+ * article past a 320 px screen and scroll the page sideways (the test
+ * "no page-level horizontal scroll" caught exactly that). A zero minimum lets
+ * the column shrink, and the table scrolls inside its own region instead.
+ */
+.case-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+}
+
+@media (min-width: 1024px) {
+  .case-layout {
+    grid-template-columns: 14rem minmax(0, 1fr);
+  }
+}
+
+.toc {
+  font-size: var(--step--1);
+}
+
+.toc ol {
+  padding-left: 1.25rem;
+}
+
+/* Two copies of the table of contents are rendered: a collapsible <details>
+   for narrow screens and a sticky list for wide ones. `display: none` removes
+   the unused copy from the accessibility tree and the tab order, so keyboard
+   and screen-reader users only ever meet one. */
+.toc--wide {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .toc--narrow {
+    display: none;
+  }
+
+  .toc--wide {
+    display: block;
+    position: sticky;
+    top: var(--space-5);
+    align-self: start;
+  }
+}
+
+/* The summary keeps its default `display: list-item`, which is what draws the
+   native ▸/▾ disclosure marker (a flex summary loses it and looks like plain
+   text). Padding makes it a 44 px tall target. */
+.toc summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding-block: var(--space-3);
+}
+
+/* Anchor targets leave a little room above the heading after a jump. */
+[id] {
+  scroll-margin-top: var(--space-5);
+}
+
+/* ------------------------------------------------------------------------ */
+/* 6. Components                                                             */
+/* ------------------------------------------------------------------------ */
+
+/* Primary call to action: a link styled as a button, at least 44 px tall.
+   `inline-block` (not flex) so the arrow stays inline with the last word when
+   the label wraps on a narrow screen. */
+.button {
+  display: inline-block;
+  min-height: 44px;
+  padding: 10px var(--space-5);
+  line-height: 1.5;
+  border-radius: var(--radius-control);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.button:hover {
+  text-decoration: underline;
+}
+
+/* Cards: surface colour plus a 1 px border, no shadow. */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: var(--space-5);
+  /* A grid child may shrink below its content's width (reflow). */
+  min-width: 0;
+}
+
+.card > :last-child {
+  margin-bottom: 0;
+}
+
+.card h3 {
+  margin-top: 0;
+}
+
+.card dl {
+  margin: 0;
+}
+
+.card dt {
+  font-weight: 600;
+  font-size: var(--step--1);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-ink-muted);
+  margin-top: var(--space-3);
+}
+
+.card dd {
+  margin: 0;
+}
+
+.card-links {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-4) 0 0;
+}
+
+.card-links li + li {
+  margin-top: var(--space-1);
+}
+
+/* Flagship: copy and evidence chips side by side from 768 px. */
+.flagship {
+  display: grid;
+  gap: var(--space-5);
+}
+
+@media (min-width: 768px) {
+  .flagship {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
+
+/* Evidence chips: monospace, wrap freely, rectangular (no pills). */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--space-4);
+}
+
+.chips li + li {
+  margin-top: 0;
+}
+
+.chip {
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-bg);
+}
+
+/* A status line such as "Live demo: in progress". The words carry the
+   meaning; the left border is only a visual hint. */
+.status {
+  font-weight: 600;
+  border-left: 4px solid var(--color-warn);
+  padding-left: var(--space-3);
+}
+
+/* Experience rows. */
+.roles {
+  list-style: none;
+  padding: 0;
+}
+
+.roles li + li {
+  margin-top: var(--space-4);
+}
+
+.role__title {
+  font-weight: 600;
+}
+
+/* Evidence lane label: text first, colour second. Each lane gets a border
+   colour from the status tokens, but the label text alone is enough. */
+.lane {
+  display: inline-block;
+  font-size: var(--step--1);
+  font-weight: 600;
+  padding: 0 var(--space-2);
+  margin-right: var(--space-2);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-control);
+  white-space: nowrap;
+}
+
+.lane--demonstrated {
+  color: var(--color-ok);
+}
+
+.lane--local {
+  color: var(--color-accent);
+}
+
+.lane--historical {
+  color: var(--color-ink-muted);
+}
+
+.lane--red {
+  color: var(--color-danger);
+}
+
+.lane--notBuilt {
+  color: var(--color-warn);
+}
+
+/* The lane legend: each description sits under its label, not indented. */
+.lane-legend dd {
+  margin: var(--space-1) 0 var(--space-3);
+}
+
+.evidence-list {
+  list-style: none;
+  padding: 0;
+}
+
+.evidence-list li + li {
+  margin-top: var(--space-4);
+}
+
+/*
+ * Wide tables (DESIGN §5, WCAG 1.4.10). The table may be wider than a phone,
+ * so it scrolls inside this region and the page itself never scrolls sideways.
+ * The region is focusable (tabIndex 0) so keyboard users can scroll it with
+ * the arrow keys, and it is labelled so screen readers announce what it is.
+ */
+.table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--step--1);
+}
+
+caption {
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  font-weight: 600;
+}
+
+th,
+td {
+  text-align: left;
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+td.num,
+th.num {
+  text-align: right;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+tbody tr:nth-child(even) {
+  background: var(--color-surface);
+}
+
+tr.best {
+  font-weight: 600;
+}
+
+/* Figures: the architecture diagram and the U-NET image. */
+figure {
+  margin: 0 0 var(--space-5);
+}
+
+figcaption {
+  font-size: var(--step--1);
+  color: var(--color-ink-muted);
+  margin-top: var(--space-2);
+}
+
+.diagram {
+  display: block;
+  width: 100%;
+  max-width: 560px;
+  height: auto;
+}
+
+/* Diagram parts are styled with classes, so the SVG uses the same colour
+   tokens as the page and switches with dark mode. */
+.diagram__box {
+  fill: var(--color-surface);
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
+.diagram__title,
+.diagram__text {
+  font-family: var(--font-body);
+  font-size: 13px;
+  fill: var(--color-ink);
+}
+
+.diagram__title {
+  font-weight: 600;
+}
+
+.diagram__arrow {
+  stroke: var(--color-ink-muted);
+  stroke-width: 2;
+}
+
+.diagram__arrowhead {
+  fill: var(--color-ink-muted);
+}
+
+.card__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-control);
+}
+
+/* The static demo panel. */
+.demo {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: var(--space-5);
+}
+
+.demo > :last-child {
+  margin-bottom: 0;
+}
+
+.demo h3:first-child {
+  margin-top: 0;
+}
+
+/* Credentials are deliberately small: they support the work, not lead it. */
+.credentials {
+  font-size: var(--step--1);
+}

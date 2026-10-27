@@ -3,3 +3,30 @@ _site
 Gemfile.lock
 *.gem
 .jekyll-cache
+
+# ---- Next.js portfolio (Day 27) ----
+# dependencies
+/node_modules
+
+# next.js build output and generated types
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# playwright output
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# env files: none are needed on Day 27, and none may be committed
+.env*
+
+# vercel
+.vercel
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*

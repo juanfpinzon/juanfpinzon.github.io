@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ArchitectureDiagram } from "@/components/ArchitectureDiagram";
+import { ChatPanel } from "@/components/ChatPanel";
 import { ExternalLink } from "@/components/ExternalLink";
 import { LaneLabel } from "@/components/LaneLabel";
 import {
@@ -8,7 +9,6 @@ import {
   lanes,
   limits,
   measuredAt,
-  presets,
   procureragLinks,
   progression,
   retrievalMetrics,
@@ -27,8 +27,10 @@ import { shareMetadata } from "../share-metadata";
  * a hosted service exists.
  *
  * Server Component, prerendered at build time. The "On this page" menu is a
- * native <details> element and the demo section is plain text, so nothing here
- * needs client JavaScript.
+ * native <details> element, so nothing here needs client JavaScript except
+ * the chat: <ChatPanel /> is the one Client Component island (Day 28). It is
+ * imported here and rendered inside the demo section; everything around it
+ * stays server-rendered HTML.
  */
 
 const title = "ProcureRAG case study";
@@ -347,59 +349,58 @@ export default function ProcureRagPage() {
           </ul>
         </section>
 
-        {/* 7. Demo: static, explanatory, sends nothing. */}
+        {/*
+          7. Demo. The text is server-rendered; the chat inside it is the one
+          Client Component island. If the chat is offline, or JavaScript is
+          off, nothing else on the page changes.
+        */}
         <section aria-labelledby="demo">
           <h2 id="demo">Demo</h2>
           <div className="demo">
             <p className="status">Live demo: in progress</p>
             <p>
-              <strong>Nothing on this page sends a question anywhere.</strong> The public demo is not
-              built yet. This section describes what it will do, so the plan can be reviewed before
-              it exists.
+              <strong>The chat below is a local slice, not a hosted service.</strong> It answers only
+              when this site runs next to a running ProcureRAG service. Nothing is hosted yet, so on
+              any other copy of this page a question comes back as “Demo offline”.
             </p>
-            <h3>When it ships, the demo will</h3>
+            <h3>What the chat does</h3>
             <ul>
-              <li>send only your question text: no role, no approval decision, no other fields;</li>
               <li>
-                answer from the 24 Internal documents of the synthetic corpus, as a fixed
-                “requester”, with no role picker and no approval controls;
+                It sends only your question text to this site&apos;s own server: no role, no approval
+                decision, no other fields. That server calls ProcureRAG with a credential your
+                browser never sees.
               </li>
               <li>
-                say which state each result is in (for example answered, evidence missing, refused or
-                demo offline) and cite document and chunk IDs only;
+                It answers from the 24 Internal documents of the synthetic corpus, as a fixed
+                “requester”, with no role picker and no approval controls.
               </li>
-              <li>label any question you type yourself as “evidence unchecked”;</li>
-              <li>keep a visible history on the page only. The model will not remember earlier questions.</li>
+              <li>
+                It says which state each result is in (for example answered, evidence missing,
+                refused or demo offline) and cites document and chunk IDs only.
+              </li>
+              <li>It labels any question you type yourself as “evidence unchecked”.</li>
+              <li>
+                It keeps a visible history on the page only. The model does not remember earlier
+                questions.
+              </li>
             </ul>
-            <h3>Approved example questions</h3>
-            <ol>
-              {presets.map((preset) => (
-                <li key={preset.id}>
-                  <code>{preset.id}</code> {preset.text}
-                </li>
-              ))}
-            </ol>
+
+            {/* Shown only when JavaScript is off, right where the greyed-out chat starts. */}
+            <noscript>
+              <p>The live demo needs JavaScript. Everything else on this page works without it.</p>
+            </noscript>
+            <ChatPanel />
+
             <p className="small">
-              These four use Internal documents only and never need a reviewer&apos;s approval. Q091
-              is withheld because its live answer is a known failure; Q092 because it needs a
-              Confidential document.
-            </p>
-            <p className="small">
-              When the demo is live, questions will be answered from a synthetic procurement knowledge
-              base and sent to a third-party model provider, so it will ask you not to enter personal
-              or confidential information.
+              The four examples use Internal documents only and never need a reviewer&apos;s
+              approval. Q091 is withheld because its live answer is a known failure; Q092 because it
+              needs a Confidential document.
             </p>
             <p>
               You can run the same pipeline on your own machine today, with no API key (the model is
               off by default, so it returns retrieval results only):{" "}
               <ExternalLink href={procureragLinks.quickstart}>ProcureRAG quickstart</ExternalLink>
             </p>
-            <noscript>
-              <p>
-                The live demo, once it ships, will need JavaScript. Everything else on this page works
-                without it.
-              </p>
-            </noscript>
           </div>
         </section>
 

@@ -53,7 +53,9 @@ const REQUIRED: Record<(typeof ROUTES)[number], string[]> = {
     "Not built yet",
     "Red · limited",
     "Live demo: in progress",
-    "Nothing on this page sends a question anywhere.",
+    // Day 28: the chat exists, but only as a local slice; the page must say so.
+    "The chat below is a local slice, not a hosted service.",
+    "Do not enter personal or confidential information.",
     "What approval is required for a EUR 60,000 purchase order?",
     "What do I have to document after an emergency purchase, and by when?",
     "Are facilitation payments ever allowed?",

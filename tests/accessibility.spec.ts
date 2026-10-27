@@ -157,19 +157,27 @@ test.describe("without JavaScript", () => {
     });
   }
 
-  test("the static demo explains itself, and the narrow table of contents still opens", async ({
+  test("the demo explains itself, the chat cannot be submitted, and the narrow table of contents still opens", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 375, height: 900 });
     await page.goto("/procurerag");
-    await expect(page.getByText("Nothing on this page sends a question anywhere.")).toBeVisible();
+    await expect(page.getByText("The chat below is a local slice, not a hosted service.")).toBeVisible();
 
     // Playwright's getByText() deliberately skips <noscript> elements, so the
     // paragraph is located by its tag instead. With JavaScript off the browser
     // parses <noscript> content as normal elements and renders it.
     const noscriptMessage = page.locator("noscript p");
     await expect(noscriptMessage).toBeVisible();
-    await expect(noscriptMessage).toContainText("The live demo, once it ships, will need JavaScript.");
+    await expect(noscriptMessage).toContainText(
+      "The live demo needs JavaScript. Everything else on this page works without it.",
+    );
+
+    // The chat's HTML is there (the preset texts can be read), but its controls
+    // are disabled: a native submit would put the question in the page URL.
+    await expect(page.getByRole("button", { name: /What does GRNI mean\?/ })).toBeDisabled();
+    await expect(page.getByRole("textbox", { name: "Your question" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Ask" })).toBeDisabled();
 
     // <details> is native HTML: it opens with no script.
     const toc = page.locator(".toc--narrow details");

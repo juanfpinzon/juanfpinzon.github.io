@@ -6,9 +6,13 @@ import { expect, test } from "@playwright/test";
  * Secret boundary of the BUILT browser assets (no browser needed).
  *
  * Everything under `.next/static/` is downloadable by any visitor: JavaScript
- * chunks, CSS, fonts, media. Day 27 has no server credential at all (no BFF,
- * no upstream call), so these files must contain none of the names that
- * Day 28–29 will introduce, and no value shaped like a key.
+ * chunks, CSS, fonts, media. Since Day 28 the BFF (app/api/chat/route.ts)
+ * reads a server credential, but only on the server, at request time. These
+ * files must therefore contain none of the server-only names, no
+ * `NEXT_PUBLIC_` variable, and no value shaped like a key. If a Client
+ * Component ever imported the server code, its `process.env` names would land
+ * here and this test would fail. (tests/chat-route.spec.ts checks the
+ * RUNTIME side: the pages and scripts a browser actually receives.)
  *
  * On failure the test prints the FILE and the NAME/PATTERN that matched, never
  * the matched text, so a real secret could not leak into the test log.
@@ -67,8 +71,10 @@ test("browser assets contain no secret names or key-shaped values", () => {
 });
 
 test("no .env file exists in the project", () => {
-  // Day 27 needs no environment variables. An .env file would be a sign that
-  // a credential crept in, even though .gitignore keeps it out of commits.
+  // The BFF's two settings are supplied to the running server from outside
+  // (a shell for the local proof, the host's secret store later), never from a
+  // file in the project. An .env file would be a sign that a credential crept
+  // in, even though .gitignore keeps it out of commits.
   const envFiles = readdirSync(".").filter((entry) => entry.startsWith(".env"));
   expect(envFiles).toEqual([]);
 });

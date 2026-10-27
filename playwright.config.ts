@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { PLACEHOLDER_SERVICE_TOKEN, TEST_UPSTREAM_URL } from "./tests/routes";
 
 /**
  * Playwright runs every test against the PRODUCTION build, not the dev server.
@@ -38,5 +39,12 @@ export default defineConfig({
     url: BASE_URL,
     reuseExistingServer: false,
     timeout: 60_000,
+    // The BFF's server-only settings, given to the running server only (see
+    // tests/routes.ts). They point at a port where nothing listens, so every
+    // chat question that passes the BFF's checks ends as `unavailable`.
+    env: {
+      PROCURERAG_API_URL: TEST_UPSTREAM_URL,
+      PROCURERAG_SERVICE_TOKEN: PLACEHOLDER_SERVICE_TOKEN,
+    },
   },
 });

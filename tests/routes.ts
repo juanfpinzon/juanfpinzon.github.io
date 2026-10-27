@@ -11,6 +11,21 @@
  */
 export const ROUTES = ["/", "/procurerag", "/about"] as const;
 
+/**
+ * The chat BFF's two server-only settings, as the test server gets them
+ * (playwright.config.ts → webServer.env). They are runtime settings: the
+ * production build itself never sees them.
+ *
+ * - The URL points at port 1 on this machine, where nothing listens. So the
+ *   real built route makes a real network call that is refused, and must
+ *   answer `unavailable` (fail closed), with no ProcureRAG service needed.
+ * - The token is an obvious placeholder, not a credential. Tests search the
+ *   HTML, JavaScript and API responses for it, to prove a server-only value
+ *   never reaches the browser.
+ */
+export const TEST_UPSTREAM_URL = "http://127.0.0.1:1";
+export const PLACEHOLDER_SERVICE_TOKEN = "playwright-placeholder-service-token-not-a-secret";
+
 export const VIEWPORT_WIDTHS = [320, 375, 768, 1024, 1280, 1440] as const;
 
 /**

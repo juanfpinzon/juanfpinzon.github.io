@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { presets } from "@/content/procurerag";
 import {
+  MAX_RETRY_AFTER_SECONDS,
+  MAX_UPSTREAM_BYTES,
   PUBLIC_ROLE,
   buildUpstreamRequest,
   handleChatRequest,
@@ -501,7 +503,8 @@ test.describe("hop 1: the browser's request", () => {
     const compact = browserJson({ question: "What does GRNI mean?" });
     const body = compact.slice(0, -1) + " ".repeat(MAX_BODY_BYTES - compact.length) + "}";
     expect(new TextEncoder().encode(body).byteLength).toBe(MAX_BODY_BYTES);
-    const { response, calls } = await run(browserRequest(body), ok());
+    // "What does GRNI mean?" is preset Q090's exact text, so the reply echoes Q090.
+    const { response, calls } = await run(browserRequest(body), ok({ query_id: "Q090" }));
     expect(response.status).toBe(200);
     expect(calls).toHaveLength(1);
   });
@@ -552,14 +555,45 @@ test.describe("hop 3: what comes back", () => {
     expect(JSON.stringify(logs)).not.toContain(secretLookingText);
   });
 
-  test("Retry-After keeps only a whole, non-negative number of seconds", () => {
+  test("Retry-After keeps only a whole, non-negative number of seconds, up to one day", () => {
     expect(parseRetryAfter("30")).toBe(30);
     expect(parseRetryAfter("0")).toBe(0);
+    expect(parseRetryAfter(String(MAX_RETRY_AFTER_SECONDS))).toBe(86_400);
     expect(parseRetryAfter(null)).toBeNull();
     expect(parseRetryAfter("Wed, 21 Oct 2026 07:28:00 GMT")).toBeNull();
     expect(parseRetryAfter("-5")).toBeNull();
     expect(parseRetryAfter("1.5")).toBeNull();
     expect(parseRetryAfter("soon")).toBeNull();
+    // Digits, but not a usable countdown.
+    expect(parseRetryAfter(String(MAX_RETRY_AFTER_SECONDS + 1))).toBeNull();
+    expect(parseRetryAfter("9007199254740993")).toBeNull(); // past 2^53: no longer exact
+    expect(parseRetryAfter("9".repeat(400))).toBeNull(); // Number() of this is Infinity
+  });
+
+  test("an absurd Retry-After never reaches the browser as a countdown", async () => {
+    const { response, raw, view } = await run(
+      browserRequest(browserJson({ question: Q001 })),
+      reply(429, "", { "Retry-After": "9".repeat(400) }),
+    );
+    expect([response.status, view.state, view.retry_after_seconds]).toEqual([429, "busy", null]);
+    expect(raw).not.toContain("Infinity");
+  });
+
+  test("the reply must carry the query_id that was sent: a preset's id, or null for free text", async () => {
+    const freeText = "Who approves a purchase order for office plants?";
+    const mismatches: [string, string, string | null][] = [
+      ["Q001 sent, Q005 back", Q001, "Q005"],
+      ["Q001 sent, null back", Q001, null],
+      ["free text sent, Q001 back", freeText, "Q001"],
+    ];
+    for (const [label, question, returnedId] of mismatches) {
+      const { response, view, logs } = await run(
+        browserRequest(browserJson({ question })),
+        ok({ status: "answered", query_id: returnedId, text: "An answer [2].", sources: SOURCES }),
+      );
+      expect([response.status, view.state], label).toEqual([503, "unavailable"]);
+      expect(logs[0].validation_error, label).toBe("response.query_id: does not match the request");
+    }
   });
 
   test("a busy reply carries the upstream's Retry-After seconds", async () => {
@@ -575,6 +609,69 @@ test.describe("hop 3: what comes back", () => {
     expect(view.sources).toEqual(SOURCES);
     expect(view.caveats).toEqual([UNLABELED_CAVEAT]);
     expect(view.text).toBe("Procurement approves it [2].");
+  });
+});
+
+test.describe("hop 3: the size of the API's reply is bounded before parsing", () => {
+  /** A reply that streams `chunkBytes` of spaces forever, counting what the BFF pulled. */
+  function endlessReply(chunkBytes: number) {
+    const pulled = { bytes: 0 };
+    const body = new ReadableStream<Uint8Array>(
+      {
+        pull(controller) {
+          pulled.bytes += chunkBytes;
+          controller.enqueue(new Uint8Array(chunkBytes).fill(0x20));
+        },
+      },
+      { highWaterMark: 0 }, // no read-ahead: `pulled` is exactly what the BFF asked for
+    );
+    return { pulled, upstream: (() => new Response(body, { status: 200 })) as Upstream };
+  }
+
+  test("a valid-shaped reply with a 3 MB answer is refused, not shown", async () => {
+    const huge = "a".repeat(3 * 1024 * 1024);
+    const { response, raw, view, logs } = await run(
+      browserRequest(browserJson({ question: Q001 })),
+      ok({ status: "answered", query_id: "Q001", text: huge, sources: SOURCES }),
+    );
+    expect([response.status, view.state]).toEqual([503, "unavailable"]);
+    expect(logs[0].validation_error).toBe(`response: over ${MAX_UPSTREAM_BYTES} bytes`);
+    expect(raw.length).toBeLessThan(1_000);
+  });
+
+  test("a declared Content-Length over the cap is refused without reading a byte", async () => {
+    let read = false;
+    const neverRead = new ReadableStream(
+      {
+        pull() {
+          read = true;
+        },
+      },
+      { highWaterMark: 0 }, // no read-ahead: `pull` runs only if the BFF reads
+    );
+    const declaredHuge: Upstream = () =>
+      new Response(neverRead, { status: 200, headers: { "Content-Length": String(3 * 1024 * 1024) } });
+
+    const { response, view } = await run(browserRequest(browserJson({ question: Q001 })), declaredHuge);
+    expect([response.status, view.state]).toEqual([503, "unavailable"]);
+    expect(read).toBe(false);
+  });
+
+  test("a chunked reply with no Content-Length stops being read at the first chunk past the cap", async () => {
+    const { pulled, upstream } = endlessReply(1024);
+    const { response, view } = await run(browserRequest(browserJson({ question: Q001 })), upstream);
+    expect([response.status, view.state]).toEqual([503, "unavailable"]);
+    expect(pulled.bytes).toBe(MAX_UPSTREAM_BYTES + 1024);
+  });
+
+  test("a reply of exactly the cap is accepted", async () => {
+    const empty = JSON.stringify(queryResponse({ status: "answered", query_id: "Q001", text: "", sources: SOURCES }));
+    const text = "a".repeat(MAX_UPSTREAM_BYTES - empty.length);
+    const body = JSON.stringify(queryResponse({ status: "answered", query_id: "Q001", text, sources: SOURCES }));
+    expect(new TextEncoder().encode(body).byteLength).toBe(MAX_UPSTREAM_BYTES);
+
+    const { response, view } = await run(browserRequest(browserJson({ question: Q001 })), reply(200, body));
+    expect([response.status, view.state]).toEqual([200, "answered"]);
   });
 });
 

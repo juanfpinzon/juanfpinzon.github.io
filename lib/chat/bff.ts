@@ -61,6 +61,29 @@ export const PUBLIC_ROLE = "requester";
  */
 export const UPSTREAM_TIMEOUT_MS = 75_000;
 
+/**
+ * The largest API reply the BFF will read: 64 KiB.
+ *
+ * The API is our own service, but its reply is still untrusted input: a bug,
+ * a proxy's error page, or something else answering at the API's address. So
+ * it is bounded exactly like the browser's body (`readBodyWithLimit`): refused
+ * by its `Content-Length`, or counted while it streams in, before it is ever
+ * parsed. Without a bound, a 3 MB reply with a valid shape would be buffered,
+ * parsed and shown.
+ *
+ * A real reply is far smaller. Sources are IDs only, and the answer is capped
+ * at 800 tokens for the public demo (3,000 by default). The longest live
+ * answer recorded so far is 1,613 characters. 64 KiB leaves a wide margin
+ * above all of that.
+ */
+export const MAX_UPSTREAM_BYTES = 64 * 1024;
+
+/**
+ * The longest `Retry-After` the BFF passes on: one day. Day 29's daily caps
+ * reset within a day, so a longer "wait" is not a real countdown.
+ */
+export const MAX_RETRY_AFTER_SECONDS = 86_400;
+
 // ---------------------------------------------------------------------------
 // The outside world, injected.
 // ---------------------------------------------------------------------------
@@ -107,7 +130,11 @@ export type BffDeps = {
 type BodyRead = { kind: "ok"; bytes: Uint8Array } | { kind: "too_large" };
 
 /**
- * Read the raw request body, refusing it once it is larger than `maxBytes`.
+ * Read a raw HTTP body, refusing it once it is larger than `maxBytes`.
+ *
+ * Used twice, because both bodies come from outside the BFF: the browser's
+ * request (2 KB) and the API's reply (`MAX_UPSTREAM_BYTES`). A `Request` and a
+ * `Response` both have the two things this needs, `headers` and `body`.
  *
  * Why not `await request.json()`: that reads the WHOLE body into memory
  * first, however large it is, and only then parses it. A 500-character
@@ -117,7 +144,7 @@ type BodyRead = { kind: "ok"; bytes: Uint8Array } | { kind: "too_large" };
  * Two checks, because neither one is enough alone:
  * 1. a declared `Content-Length` above the cap: refused without reading a
  *    single byte;
- * 2. the body itself, counted chunk by chunk WHILE it streams in. A request
+ * 2. the body itself, counted chunk by chunk WHILE it streams in. A body
  *    sent with `Transfer-Encoding: chunked` has no `Content-Length` at all,
  *    and a lying header could claim a small size. As soon as the running
  *    total passes `maxBytes`, the reader is cancelled: no further chunk is
@@ -125,22 +152,28 @@ type BodyRead = { kind: "ok"; bytes: Uint8Array } | { kind: "too_large" };
  *
  * The runtime decides how big each chunk is, so the chunk that crosses the
  * limit is already in memory when it is counted. What this guarantees: reading
- * stops at the first chunk past the cap (with 1-byte chunks, after exactly
- * 2,049 bytes), and at most `maxBytes` bytes are kept.
+ * stops at the first chunk past the cap (with 1-byte chunks and the 2 KB cap,
+ * after exactly 2,049 bytes), and at most `maxBytes` bytes are kept.
  */
-export async function readBodyWithLimit(request: Request, maxBytes = MAX_BODY_BYTES): Promise<BodyRead> {
-  const declared = request.headers.get("content-length");
+export async function readBodyWithLimit(
+  message: Pick<Request, "headers" | "body">,
+  maxBytes = MAX_BODY_BYTES,
+): Promise<BodyRead> {
+  const declared = message.headers.get("content-length");
   // `Number("abc")` is NaN, and `NaN > maxBytes` is false: a garbage header
   // falls through to check 2, which still enforces the cap.
   if (declared !== null && Number(declared) > maxBytes) {
+    // Not one byte is read. Cancelling tells the sender so, and for the API's
+    // reply it releases the connection.
+    await message.body?.cancel();
     return { kind: "too_large" };
   }
 
-  if (request.body === null) {
+  if (message.body === null) {
     return { kind: "ok", bytes: new Uint8Array(0) };
   }
 
-  const reader = request.body.getReader();
+  const reader = message.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
   while (true) {
@@ -433,11 +466,17 @@ export function toBrowserView(response: QueryResponse): BrowserView {
  * The API sends seconds, but the BFF must not crash on anything else: a
  * missing header, a date, a negative number or garbage all become null, and
  * the visitor sees the plain "busy" message without a countdown.
+ *
+ * Digits alone are not enough: `Number` of 400 nines is `Infinity`, and past
+ * 2^53 a number is no longer exact. So the value must also be a safe integer
+ * (which also rules out `Infinity`) and at most one day.
  */
 export function parseRetryAfter(header: string | null): number | null {
   if (header === null) return null;
   const trimmed = header.trim();
-  return /^\d+$/.test(trimmed) ? Number(trimmed) : null;
+  if (!/^\d+$/.test(trimmed)) return null;
+  const seconds = Number(trimmed);
+  return Number.isSafeInteger(seconds) && seconds <= MAX_RETRY_AFTER_SECONDS ? seconds : null;
 }
 
 /** True for the error `fetch` throws when an `AbortSignal.timeout(...)` fires (a DOMException named "TimeoutError"). */
@@ -464,8 +503,10 @@ function isTimeout(error: unknown): boolean {
  *   upstream timed out?              -> 504 timed_out
  *   upstream unreachable?            -> 503 unavailable
  *   upstream 422 / 429 / other       -> invalid_question / busy / unavailable
- *   upstream 200, valid              -> 200, one of the six API states
+ *   upstream 200, over 64 KB         -> 503 unavailable, never buffered or parsed
  *   upstream 200, malformed          -> 503 unavailable
+ *   upstream 200, other query_id     -> 503 unavailable
+ *   upstream 200, valid and matching -> 200, one of the six API states
  *
  * There is no retry anywhere: a retry would be a second paid call that the
  * visitor never asked for, and it could double a quota charge. A visitor who
@@ -513,7 +554,7 @@ export async function handleChatRequest(request: Request, deps: BffDeps): Promis
   //      way answered with a redirect, following it could carry the token to
   //      another address. It is a network error instead.
   let upstream: Response;
-  let upstreamText = "";
+  let upstreamBytes: Uint8Array = new Uint8Array(0);
   try {
     upstream = await deps.fetchUpstream(`${deps.config.apiUrl}/query`, {
       method: "POST",
@@ -526,7 +567,17 @@ export async function handleChatRequest(request: Request, deps: BffDeps): Promis
       redirect: "error",
     });
     if (upstream.status === 200) {
-      upstreamText = await upstream.text();
+      // Bounded like the browser's body: an oversized reply is never buffered
+      // whole, and never parsed. Reading stays inside this `try`, so the 75 s
+      // timeout still covers a reply that starts and then stalls.
+      const read = await readBodyWithLimit(upstream, MAX_UPSTREAM_BYTES);
+      if (read.kind === "too_large") {
+        return reply(503, transportView("unavailable"), {
+          upstream_status: 200,
+          validation_error: `response: over ${MAX_UPSTREAM_BYTES} bytes`,
+        });
+      }
+      upstreamBytes = read.bytes;
     } else {
       // Not needed: release the connection without reading the body.
       await upstream.body?.cancel();
@@ -554,7 +605,8 @@ export async function handleChatRequest(request: Request, deps: BffDeps): Promis
   //    log says where the reply was wrong, never what it said.
   let parsed: unknown;
   try {
-    parsed = JSON.parse(upstreamText);
+    // `fatal: true`: bytes that are not UTF-8 fail here, like broken JSON.
+    parsed = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(upstreamBytes));
   } catch {
     return reply(503, transportView("unavailable"), {
       upstream_status: 200,
@@ -564,6 +616,18 @@ export async function handleChatRequest(request: Request, deps: BffDeps): Promis
   const validation = validateQueryResponse(parsed);
   if (!validation.ok) {
     return reply(503, transportView("unavailable"), { upstream_status: 200, validation_error: validation.error });
+  }
+
+  // 6. A valid reply must also be the reply to THIS request. The API echoes
+  //    the `query_id` it was sent: the preset's id, or null for free text. Any
+  //    other id means an API bug or version mismatch, and showing the reply
+  //    would put an evaluated answer under the wrong preset, or present a
+  //    free-text answer as evaluated. So it fails closed.
+  if (validation.response.query_id !== (upstreamBody.query_id ?? null)) {
+    return reply(503, transportView("unavailable"), {
+      upstream_status: 200,
+      validation_error: "response.query_id: does not match the request",
+    });
   }
   return reply(200, toBrowserView(validation.response));
 }

@@ -316,7 +316,8 @@ export function ChatPanel() {
       <h3>Ask a question</h3>
       <p className="chat__disclosure">
         Questions are answered from a synthetic procurement knowledge base. When answers are
-        generated, your question is sent to a third-party model provider.{" "}
+        generated, your question and the retrieved excerpts are sent through OpenRouter to a
+        zero-data-retention model endpoint (today, Microsoft Azure), which does not store them.{" "}
         <strong>Do not enter personal or confidential information.</strong>
       </p>
 

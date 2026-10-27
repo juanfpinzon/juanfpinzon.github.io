@@ -157,8 +157,9 @@ export default function ProcureRagPage() {
               ms-marco-TinyBERT-L2); I did not train them.
             </li>
             <li>
-              Answers come from a third-party model API (gpt-4o through OpenRouter). It is opt-in and
-              off by default; the tests and evaluations need no API key.
+              Answers come from a third-party model API through OpenRouter (gpt-4o for the
+              evaluations, gpt-4o-mini for the chat), routed only to zero-data-retention endpoints.
+              It is opt-in and off by default; the tests and evaluations need no API key.
             </li>
           </ul>
           <h3>The data is synthetic</h3>

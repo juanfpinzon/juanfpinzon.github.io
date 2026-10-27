@@ -50,7 +50,7 @@ export const recentRoles: Role[] = [
     years: "2022–2026",
     location: "Barcelona, Spain",
     highlights: [
-      "Built and operated ML forecasting (XGBoost, LightGBM, ensembles) running weekly on millions of multi-country rows for PepsiCo's first Integrated Business Planning (IBP) implementation (Iberia, 2022–2024); co-led the Sustain model design covering governance, documentation, monitoring and retraining. Stack: Azure Databricks, PySpark, Azure Data Factory.",
+      "Supported PepsiCo's first Integrated Business Planning (IBP) implementation (Iberia, 2022–2024), operating ML forecasting (XGBoost, LightGBM, ensembles) weekly on millions of multi-country rows; co-led the Sustain model design covering governance, documentation, monitoring and retraining. Stack: Azure Databricks, PySpark, Azure Data Factory.",
       "Designed a cross-functional analytics solution integrating Spend, R&D and bill-of-materials data, with a Power BI dashboard that cut analysis time from 4+ weeks to near-real-time (Beyond Spend, Procurement Excellence, 2024–2025).",
       "Co-led the European rollout of a global spend-visibility platform across 100+ procurement members, then took a global stretch assignment owning transformation, change management and adoption KPIs (SpendHQ, 2025).",
     ],

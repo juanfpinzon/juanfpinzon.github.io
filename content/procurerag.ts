@@ -191,7 +191,7 @@ export const evidence: EvidenceItem[] = [
   {
     lane: "notBuilt",
     claim:
-      "The public demo: a browser-facing chat, its server-side proxy, an authenticated upstream, a persistent quota and a hosted service.",
+      "The public demo: a hosted service, a persistent quota, a runtime kill switch and a public URL. The chat, its server-side proxy and the service-token check exist only as a local slice.",
     evidence: { label: "Browser contract probe (no paid calls)", href: procureragLinks.contractProbe },
   },
 ];
@@ -200,7 +200,7 @@ export const evidence: EvidenceItem[] = [
 export const limits = [
   {
     title: "Roles are caller-asserted",
-    text: "There is no authentication. A caller says whether it is a requester or a buyer, and the API filters documents by that claim.",
+    text: "There is no user login. A service token lets only this site's server-side proxy call the API, and the proxy always asks as a requester; the API itself still filters documents by the role its caller states.",
   },
   {
     title: "Approval is stateless",
@@ -262,7 +262,6 @@ export const progression = [
 
 /** What comes next. Nothing in this list exists yet. */
 export const roadmap = [
-  "A secured local chat slice: a server-side proxy that fixes the role, checks the input and calls the API with a service token.",
   "A hosted chain with a persistent quota, a spend ceiling, a kill switch and a recorded launch smoke test.",
   "The public cutover of this site, with the old CV link kept working.",
   "A repair for Q091's incomplete answer, with its own regression gate.",

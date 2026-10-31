@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { presets } from "@/content/procurerag";
-import { UI_MESSAGES, type BrowserView, type UiState } from "@/lib/chat/contract";
+import { SERVICE_MESSAGES, UI_MESSAGES, type BrowserView, type UiState } from "@/lib/chat/contract";
 
 /*
  * The chat island (components/ChatPanel.tsx) in a real browser, against the
@@ -13,6 +13,10 @@ import { UI_MESSAGES, type BrowserView, type UiState } from "@/lib/chat/contract
  * is tested in chat-bff.spec.ts (logic) and chat-route.spec.ts (built route).
  *
  * One test uses no mock at all: browser -> real /api/chat -> refused upstream.
+ *
+ * The warm-up request (GET /api/chat/status, sent once when the chat scrolls
+ * into view) is answered "ready" by default in every test, so it never adds
+ * noise; the warm-up tests at the end replace that answer.
  */
 
 const Q001 = presets[0];
@@ -70,6 +74,16 @@ async function mockChat(page: Page, reply: BrowserView, delayMs = 0) {
   return sent;
 }
 
+/** Answer the warm-up check with `state`; returns the methods of the requests it received. */
+async function mockStatus(page: Page, state: string, httpStatus = 200) {
+  const received: string[] = [];
+  await page.route("**/api/chat/status", async (route) => {
+    received.push(route.request().method());
+    await route.fulfill({ status: httpStatus, json: { state } });
+  });
+  return received;
+}
+
 const questionBox = (page: Page) => page.getByRole("textbox", { name: "Your question" });
 const askButton = (page: Page) => page.getByRole("button", { name: "Ask" });
 const answers = (page: Page) => page.locator(".chat__history article");
@@ -80,6 +94,7 @@ async function ask(page: Page, question: string) {
 }
 
 test.beforeEach(async ({ page }) => {
+  await mockStatus(page, "ready");
   await page.goto("/procurerag");
   // The controls are disabled until React has hydrated the island.
   await expect(askButton(page)).toBeEnabled();
@@ -284,4 +299,47 @@ test("a successful exchange logs no console error", async ({ page }) => {
   await expect(answers(page)).toHaveCount(1);
 
   expect(errors).toEqual([]);
+});
+
+test("a daily-limit wait is shown in hours, rounded up, not as tens of thousands of seconds", async ({ page }) => {
+  await mockChat(page, view("busy", { retry_after_seconds: 4 * 3_600 + 1 }));
+  await ask(page, "What does GRNI mean?");
+  await expect(answers(page).last()).toContainText("You can ask again in about 5 hours.");
+});
+
+test.describe("warm on intent: one status request when the chat is first seen", () => {
+  const warmUpLine = (page: Page) => page.locator(".chat__service");
+
+  test("nothing is sent before the chat is visible; exactly one request after, however often it is scrolled to", async ({
+    page,
+  }) => {
+    // Registered after beforeEach's default, so it takes precedence.
+    const received = await mockStatus(page, "ready");
+    await page.waitForTimeout(500);
+    expect(received, "the chat starts below the fold, so no request yet").toEqual([]);
+
+    await page.locator(".chat").scrollIntoViewIfNeeded();
+    await expect(warmUpLine(page)).toHaveText(SERVICE_MESSAGES.ready);
+
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.locator(".chat").scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
+    expect(received).toEqual(["GET"]);
+  });
+
+  const replies: [string, number, keyof typeof SERVICE_MESSAGES][] = [
+    ["waking", 504, "waking"],
+    ["busy", 429, "busy"],
+    ["unavailable", 503, "unavailable"],
+    ["not-a-state", 200, "unavailable"],
+  ];
+  for (const [state, httpStatus, shown] of replies) {
+    test(`a "${state}" reply shows the ${shown} line, and the form stays usable`, async ({ page }) => {
+      await mockStatus(page, state, httpStatus);
+      await page.locator(".chat").scrollIntoViewIfNeeded();
+      await expect(warmUpLine(page)).toHaveText(SERVICE_MESSAGES[shown]);
+      // The warm-up line is advice, not a gate: the visitor can still ask.
+      await expect(askButton(page)).toBeEnabled();
+    });
+  }
 });

@@ -12,19 +12,37 @@
 export const ROUTES = ["/", "/procurerag", "/about"] as const;
 
 /**
- * The chat BFF's two server-only settings, as the test server gets them
+ * The chat BFF's server-only settings, as the test server gets them
  * (playwright.config.ts → webServer.env). They are runtime settings: the
  * production build itself never sees them.
  *
- * - The URL points at port 1 on this machine, where nothing listens. So the
- *   real built route makes a real network call that is refused, and must
- *   answer `unavailable` (fail closed), with no ProcureRAG service needed.
- * - The token is an obvious placeholder, not a credential. Tests search the
- *   HTML, JavaScript and API responses for it, to prove a server-only value
- *   never reaches the browser.
+ * - The upstream URL points at port 1 on this machine. Port 1 is on the Fetch
+ *   standard's list of blocked ports, so Node's `fetch` refuses it ITSELF
+ *   ("bad port") before any packet is sent. Every question that passes the
+ *   BFF's checks therefore fails at the network step and must answer
+ *   `unavailable` (fail closed), with no ProcureRAG service needed, and it
+ *   is guaranteed never to reach a real server on this machine.
+ * - The quota store is tests/fake-upstash-server.mjs on its own port: kill
+ *   switch on, every admission "admitted". The real Lua is tested elsewhere.
+ * - Tokens and secrets are obvious placeholders, not credentials. Tests search
+ *   the HTML, JavaScript and API responses for them, to prove a server-only
+ *   value never reaches the browser.
  */
 export const TEST_UPSTREAM_URL = "http://127.0.0.1:1";
 export const PLACEHOLDER_SERVICE_TOKEN = "playwright-placeholder-service-token-not-a-secret";
+export const FAKE_STORE_PORT = 3101;
+export const FAKE_STORE_URL = `http://127.0.0.1:${FAKE_STORE_PORT}`;
+export const PLACEHOLDER_STORE_TOKEN = "playwright-placeholder-store-token-not-a-secret";
+export const PLACEHOLDER_CLIENT_HASH_SECRET = "playwright-placeholder-client-hash-secret-not-a-secret";
+
+/**
+ * The address the route tests put in `x-vercel-forwarded-for` (RFC 5737
+ * documentation range, never a real client). Locally this header is just
+ * text that the test typed: it lets a request reach the admission step, and
+ * proves only the wiring. That Vercel overwrites a forged value is checked on
+ * the deployed chain (ProcureRAG `scripts/deployed_proof.py spoof-check`).
+ */
+export const TEST_CLIENT_ADDRESS = "203.0.113.7";
 
 export const VIEWPORT_WIDTHS = [320, 375, 768, 1024, 1280, 1440] as const;
 

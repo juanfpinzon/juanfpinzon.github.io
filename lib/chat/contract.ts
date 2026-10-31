@@ -90,6 +90,42 @@ export const UI_MESSAGES: Record<UiState, string> = {
   unavailable: "The live demo is unavailable right now. The case study and code are still available.",
 };
 
+// ---------------------------------------------------------------------------
+// The warm-up check: GET /api/chat/status (ADR §8.4, "warm on intent").
+// ---------------------------------------------------------------------------
+
+/**
+ * What the status route says about the ProcureRAG service. The Azure app scales
+ * to zero when idle, and waking it takes about a minute. So when a visitor
+ * scrolls to the chat, the browser asks once, and the BFF calls the API's free
+ * `/health` (never `/query`, never the LLM):
+ *
+ * - `ready`: `/health` answered "ok". The next question will not wait for a cold start;
+ * - `waking`: `/health` did not answer within the BFF's 90 s. The service may
+ *   still be starting, so the first question may take longer or time out;
+ * - `busy`: the status check's OWN daily limit is used up, so `/health` was not
+ *   called (the same rule as the chat: `busy` always means an enforced limit);
+ * - `unavailable`: kill switch off, configuration or quota store missing or
+ *   broken, or `/health` failed.
+ */
+export const SERVICE_STATES = ["ready", "waking", "busy", "unavailable"] as const;
+export type ServiceState = (typeof SERVICE_STATES)[number];
+
+/** The status route's whole reply body. Nothing from `/health` is passed on. */
+export type StatusView = { state: ServiceState };
+
+/**
+ * The warm-up line above the chat. `checking` is the browser's own state while
+ * the one status request is on its way; the other four are the route's replies.
+ */
+export const SERVICE_MESSAGES: Record<ServiceState | "checking", string> = {
+  checking: "Checking the live service. If it was idle, waking it takes about a minute.",
+  ready: "The live service is awake.",
+  waking: "The live service is still starting. Your first question may take longer, or time out.",
+  busy: "The warm-up check has reached its daily limit. If the service is idle, your first question can take about a minute.",
+  unavailable: UI_MESSAGES.unavailable,
+};
+
 /** A `BrowserView` for an outcome where no API response exists (or none may be shown). */
 export function transportView(state: TransportState, retryAfterSeconds: number | null = null): BrowserView {
   return {

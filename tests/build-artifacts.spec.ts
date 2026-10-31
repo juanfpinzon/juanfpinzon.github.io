@@ -26,6 +26,13 @@ const CLIENT_ASSETS = ".next/static";
 const FORBIDDEN_NAMES = [
   "PROCURERAG_API_URL",
   "PROCURERAG_SERVICE_TOKEN",
+  // Day 29: the quota store and the client-digest key.
+  "PROCURERAG_CLIENT_HASH_SECRET",
+  "PROCURERAG_BUDGET_DOMAIN",
+  "UPSTASH_REDIS_REST_URL",
+  "UPSTASH_REDIS_REST_TOKEN",
+  "KV_REST_API_URL",
+  "KV_REST_API_TOKEN",
   "OPENROUTER_API_KEY",
   "LANGSMITH_API_KEY",
   "AZURE_CLIENT_SECRET",
@@ -71,8 +78,8 @@ test("browser assets contain no secret names or key-shaped values", () => {
 });
 
 test("no .env file exists in the project", () => {
-  // The BFF's two settings are supplied to the running server from outside
-  // (a shell for the local proof, the host's secret store later), never from a
+  // The BFF's settings are supplied to the running server from outside
+  // (a shell for the local proof, Vercel's environment settings), never from a
   // file in the project. An .env file would be a sign that a credential crept
   // in, even though .gitignore keeps it out of commits.
   const envFiles = readdirSync(".").filter((entry) => entry.startsWith(".env"));

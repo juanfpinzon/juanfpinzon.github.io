@@ -16,17 +16,27 @@
  * - the API decides everything else: guards, role filter, retrieval, status.
  *
  * WHY THIS FILE READS NO ENVIRONMENT VARIABLE: everything from the outside
- * world (the API URL and token, `fetch`, the clock for timeouts, the logger,
- * the kill switch) arrives through `BffDeps`. The route file
- * (app/api/chat/route.ts) passes the real ones. The tests pass fakes, so they
- * can count upstream calls, simulate a timeout or a cut-off reply, and never
- * touch the network. The secret itself only ever lives in the route's
- * environment and in the `config` object passed in per request.
+ * world (the API URL and token, the quota store with its kill switch, the
+ * client's address, `fetch`, the clock, the logger) arrives through
+ * `BffDeps`. The route file (app/api/chat/route.ts) passes the real ones. The
+ * tests pass fakes, so they can count upstream calls and store calls,
+ * simulate a timeout or a cut-off reply, and never touch the network. The
+ * secrets only ever live in the route's environment and in the objects passed
+ * in per request.
  *
  * The specification is ProcureRAG's `scripts/portfolio_contract_probe.py`;
  * `handleChatRequest` below follows its `handle_browser_request` step by step.
+ * Day 29 adds the runtime kill switch and the admission step of ADR §8.3.1
+ * (lib/chat/admission.ts) between the browser checks and the upstream call.
  */
 
+import {
+  clientDigest,
+  newLeaseId,
+  secondsUntilUtcMidnight,
+  type Admission,
+  type AdmissionStore,
+} from "./admission";
 import {
   API_STATES,
   MAX_BODY_BYTES,
@@ -88,15 +98,17 @@ export const MAX_RETRY_AFTER_SECONDS = 86_400;
 // The outside world, injected.
 // ---------------------------------------------------------------------------
 
-/** The two server-only settings. `null` when either is missing or unusable. */
+/** The API's server-only settings. `null` when any is missing or unusable (lib/chat/server-config.ts). */
 export type BffConfig = {
   /** Base URL of the ProcureRAG API, without a trailing slash. */
   apiUrl: string;
   /** The service token, sent as `Authorization: Bearer <serviceToken>`. */
   serviceToken: string;
+  /** The key of the client-address HMAC (`clientDigest` in lib/chat/admission.ts). */
+  clientHashSecret: string;
 };
 
-/** One structured log line per request. It never holds the question, an answer, a body or a secret. */
+/** One structured log line per request. It never holds the question, an answer, a body, an address or a secret. */
 export type ChatLogEntry = {
   at: string;
   route: "/api/chat";
@@ -110,14 +122,34 @@ export type ChatLogEntry = {
   upstream_status?: number;
   /** For a malformed upstream reply: WHERE it was wrong, never what it said. */
   validation_error?: string;
+  /** Why the quota store could not answer: a fixed phrase from `StoreError`. */
+  store_error?: string;
+  /** The daily counters and leases after admission. Numbers only: no address, no digest. */
+  quota?: Admission["counters"];
+  /** What happened to this request's in-flight lease (present once one was taken). */
+  lease?: "released" | "kept_until_expiry" | "release_failed";
 };
 
 export type BffDeps = {
   config: BffConfig | null;
-  /** The kill switch: false answers `unavailable` at once and calls nothing. */
-  demoEnabled: boolean;
+  /**
+   * The quota store, which also holds the runtime kill switch. `null` when its
+   * settings are missing: the BFF then answers `unavailable` and calls nothing.
+   */
+  store: AdmissionStore | null;
+  /**
+   * The client's address as the HOSTING PLATFORM reported it (the route reads
+   * `x-vercel-forwarded-for` with `trustedClientAddress`), or null. Passed in,
+   * rather than read from `request` here, so tests can choose it without
+   * pretending that a header they typed is trustworthy.
+   */
+  clientAddress: string | null;
   /** How the BFF reaches the API. The real `fetch` in the route, a fake in tests. */
   fetchUpstream: (url: string, init: RequestInit) => Promise<Response>;
+  /** The clock (ms since 1970). Tests set it, e.g. one millisecond before midnight UTC. */
+  now?: () => number;
+  /** A new lease id per request. Tests set it, to check which lease was released. */
+  makeLeaseId?: () => string;
   /** Override for tests only, so a "timeout" takes milliseconds instead of 75 s. */
   timeoutMs?: number;
   log?: (entry: ChatLogEntry) => void;
@@ -480,12 +512,37 @@ export function parseRetryAfter(header: string | null): number | null {
 }
 
 /** True for the error `fetch` throws when an `AbortSignal.timeout(...)` fires (a DOMException named "TimeoutError"). */
-function isTimeout(error: unknown): boolean {
+export function isTimeout(error: unknown): boolean {
   return typeof error === "object" && error !== null && (error as { name?: unknown }).name === "TimeoutError";
 }
 
+/**
+ * The connection errors that PROVE the API never received the request.
+ *
+ * Node's `fetch` throws `TypeError("fetch failed")` for every network problem
+ * and puts the real reason in `error.cause.code`. Only these say "no
+ * connection was ever made": refused, no such host (DNS), host or network
+ * unreachable. Then no work can be running for the request, and its lease
+ * can be released at once.
+ *
+ * Every other failure (a connection reset after the request was sent, a TLS
+ * or protocol error, a redirect refused by `redirect: "error"`) may have
+ * reached the API, so the lease is kept until it expires.
+ */
+const NEVER_CONNECTED_CODES = new Set(["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "EHOSTUNREACH", "ENETUNREACH"]);
+
+export function connectionWasNeverMade(error: unknown): boolean {
+  const cause = (error as { cause?: { code?: unknown } } | null)?.cause;
+  return typeof cause?.code === "string" && NEVER_CONNECTED_CODES.has(cause.code);
+}
+
+/** The safe text of a store failure for the log: our own fixed phrase, never the raw error. */
+export function storeFailure(error: unknown): string {
+  return error instanceof Error && error.name === "StoreError" ? error.message : "store call failed";
+}
+
 // ---------------------------------------------------------------------------
-// The handler: the three hops above, in order.
+// The handler: the three hops above, in order, with admission in between.
 // ---------------------------------------------------------------------------
 
 /**
@@ -494,27 +551,41 @@ function isTimeout(error: unknown): boolean {
  * Each step can end the request, and each runs before the more expensive
  * steps after it:
  *
- *   kill switch off?                 -> 503 unavailable, nothing read or sent
- *   configuration missing?           -> 503 unavailable, nothing read or sent
+ *   configuration or store missing?  -> 503 unavailable, nothing read or sent
+ *   kill switch off, or unreadable?  -> 503 unavailable, nothing read or sent
  *   not declared as JSON?            -> 422 invalid_question
  *   body over 2 KB?                  -> 413 invalid_question, nothing parsed or sent
  *   body not {"question": ...}?      -> 422 invalid_question, nothing sent
+ *   no trusted client address?       -> 503 unavailable, nothing counted or sent
+ *   ------------------------------------- one atomic admission (ADR §8.3.1)
+ *   store failed?                    -> 503 unavailable, nothing sent
+ *   a limit reached?                 -> 429 busy, nothing counted, nothing sent
+ *   ------------------------------------- admitted: one lease held, both day counters +1
  *   ------------------------------------- exactly ONE upstream call from here on
- *   upstream timed out?              -> 504 timed_out
- *   upstream unreachable?            -> 503 unavailable
- *   upstream 422 / 429 / other       -> invalid_question / busy / unavailable
- *   upstream 200, over 64 KB         -> 503 unavailable, never buffered or parsed
- *   upstream 200, malformed          -> 503 unavailable
- *   upstream 200, other query_id     -> 503 unavailable
- *   upstream 200, valid and matching -> 200, one of the six API states
+ *   upstream timed out?              -> 504 timed_out          (lease KEPT until it expires)
+ *   upstream never connected?        -> 503 unavailable        (lease released)
+ *   other network failure?           -> 503 unavailable        (lease KEPT)
+ *   any complete upstream reply      -> lease released, then:
+ *     422 / 429 / other              -> invalid_question / busy / unavailable
+ *     200, over 64 KB                -> 503 unavailable, never buffered or parsed
+ *     200, malformed                 -> 503 unavailable
+ *     200, other query_id            -> 503 unavailable
+ *     200, valid and matching        -> 200, one of the six API states
  *
- * There is no retry anywhere: a retry would be a second paid call that the
- * visitor never asked for, and it could double a quota charge. A visitor who
- * wants to try again presses the button again.
+ * Two rules about money hold on every path:
+ * - nothing is ever REFUNDED. The day counters count attempts: a question
+ *   that fails upstream was still sent, and may still have cost money;
+ * - there is no retry anywhere. A retry would be a second paid call that the
+ *   visitor never asked for. A visitor who wants to try again presses the
+ *   button again, and that is a new admission.
  */
 export async function handleChatRequest(request: Request, deps: BffDeps): Promise<Response> {
-  const startedAt = Date.now();
+  const now = deps.now ?? Date.now;
+  const startedAt = now();
   let questionKind = "none";
+  // Facts learned along the way (quota counters, the lease's fate), added to
+  // the one log line whichever exit is taken.
+  const facts: Partial<ChatLogEntry> = {};
 
   // Every exit goes through here: one JSON response and one log line.
   // `Cache-Control: no-store`: an answer is never cached by a browser or CDN.
@@ -524,19 +595,33 @@ export async function handleChatRequest(request: Request, deps: BffDeps): Promis
       route: "/api/chat",
       state: view.state,
       http_status: status,
-      latency_ms: Date.now() - startedAt,
+      latency_ms: now() - startedAt,
       question_kind: questionKind,
+      ...facts,
       ...details,
     });
     return Response.json(view, { status, headers: { "Cache-Control": "no-store" } });
   }
 
-  // 1. Can the demo run at all? Both checks are about the server, not the
+  // 1. Can the demo run at all? These checks are about the server, not the
   //    request, so the body is not even read.
-  if (!deps.demoEnabled) return reply(503, transportView("unavailable"), { reason: "kill_switch" });
-  if (deps.config === null) return reply(503, transportView("unavailable"), { reason: "missing_config" });
+  const { config, store } = deps;
+  if (config === null) return reply(503, transportView("unavailable"), { reason: "missing_config" });
+  if (store === null) return reply(503, transportView("unavailable"), { reason: "missing_store_config" });
+
+  //    The kill switch (ADR §8.6) is READ ON EVERY REQUEST from the store, so
+  //    flipping it takes effect on the next request, with no redeploy. A
+  //    store that cannot answer counts as "off": fail closed.
+  let enabled: boolean;
+  try {
+    enabled = await store.isChatEnabled();
+  } catch (error) {
+    return reply(503, transportView("unavailable"), { reason: "store_error", store_error: storeFailure(error) });
+  }
+  if (!enabled) return reply(503, transportView("unavailable"), { reason: "kill_switch" });
 
   // 2. The browser's request: JSON, at most 2 KB, exactly {"question": ...}.
+  //    All of this runs BEFORE admission, so an invalid body is never counted.
   if (!declaresJson(request)) return reply(422, transportView("invalid_question"), { reason: "not_json" });
   const body = await readBodyWithLimit(request);
   if (body.kind === "too_large") return reply(413, transportView("invalid_question"));
@@ -546,7 +631,46 @@ export async function handleChatRequest(request: Request, deps: BffDeps): Promis
   const upstreamBody = buildUpstreamRequest(question);
   questionKind = upstreamBody.query_id ?? "free_text";
 
-  // 3. Exactly one call to the API.
+  // 3. Who is asking? Only the per-client limit needs this, but without it
+  //    that limit cannot be enforced, so the request is refused (fail closed).
+  //    The address is turned into an HMAC digest at once and never stored or logged.
+  if (deps.clientAddress === null) return reply(503, transportView("unavailable"), { reason: "no_client_address" });
+  const digest = clientDigest(deps.clientAddress, config.clientHashSecret);
+
+  // 4. One atomic admission: all three limits checked, and if none is
+  //    reached, one lease taken and both day counters charged, in ONE store
+  //    step (lib/chat/upstash-admission.ts). `now` is passed in, never read
+  //    inside the store, so every copy of this function agrees on the day.
+  const leaseId = (deps.makeLeaseId ?? newLeaseId)();
+  let admission: Admission;
+  try {
+    admission = await store.admitChat({ nowMs: startedAt, clientDigest: digest, leaseId });
+  } catch (error) {
+    return reply(503, transportView("unavailable"), { reason: "store_error", store_error: storeFailure(error) });
+  }
+  facts.quota = admission.counters;
+  if (!admission.admitted) {
+    // A daily limit resets at 00:00 UTC, so the wait is known exactly. A full
+    // in-flight set frees up whenever a running question ends, which nobody
+    // can predict, so there is no countdown for it.
+    const retryAfter = admission.reason === "in_flight_cap" ? null : secondsUntilUtcMidnight(startedAt);
+    return reply(429, transportView("busy", retryAfter), { reason: admission.reason });
+  }
+
+  // From here this request holds one lease. Until something PROVES the
+  // upstream work is over, the lease stays, and only its expiry frees it.
+  facts.lease = "kept_until_expiry";
+  const releaseLease = async () => {
+    try {
+      await store.releaseChat(leaseId);
+      facts.lease = "released";
+    } catch {
+      // Not fatal: the lease simply lives until it expires.
+      facts.lease = "release_failed";
+    }
+  };
+
+  // 5. Exactly one call to the API.
   //    - `AbortSignal.timeout` aborts the call after 75 s, including reading
   //      the reply's body, so a server that sends headers and then stalls is
   //      a timeout too;
@@ -555,11 +679,12 @@ export async function handleChatRequest(request: Request, deps: BffDeps): Promis
   //      another address. It is a network error instead.
   let upstream: Response;
   let upstreamBytes: Uint8Array = new Uint8Array(0);
+  let upstreamTooLarge = false;
   try {
-    upstream = await deps.fetchUpstream(`${deps.config.apiUrl}/query`, {
+    upstream = await deps.fetchUpstream(`${config.apiUrl}/query`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${deps.config.serviceToken}`,
+        Authorization: `Bearer ${config.serviceToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(upstreamBody),
@@ -571,23 +696,35 @@ export async function handleChatRequest(request: Request, deps: BffDeps): Promis
       // whole, and never parsed. Reading stays inside this `try`, so the 75 s
       // timeout still covers a reply that starts and then stalls.
       const read = await readBodyWithLimit(upstream, MAX_UPSTREAM_BYTES);
-      if (read.kind === "too_large") {
-        return reply(503, transportView("unavailable"), {
-          upstream_status: 200,
-          validation_error: `response: over ${MAX_UPSTREAM_BYTES} bytes`,
-        });
-      }
-      upstreamBytes = read.bytes;
+      if (read.kind === "too_large") upstreamTooLarge = true;
+      else upstreamBytes = read.bytes;
     } else {
       // Not needed: release the connection without reading the body.
       await upstream.body?.cancel();
     }
   } catch (error) {
+    // A timeout proves nothing about Azure: the API (and the model provider
+    // behind it) may still be working on this question. So the lease is KEPT:
+    // it holds the slot until it expires, and the 2-in-flight limit stays true.
     if (isTimeout(error)) return reply(504, transportView("timed_out"));
+    // A connection that was never made proves the API never saw the request.
+    if (connectionWasNeverMade(error)) await releaseLease();
     return reply(503, transportView("unavailable"), { reason: "network_error" });
   }
 
-  // 4. Map the upstream status (ADR §6.3). The API's own error text is never
+  // A complete reply arrived. Whatever it says, the API has finished this
+  // request, so the slot is free for the next question. (The counters are
+  // not touched: the attempt still counts.)
+  await releaseLease();
+
+  if (upstreamTooLarge) {
+    return reply(503, transportView("unavailable"), {
+      upstream_status: 200,
+      validation_error: `response: over ${MAX_UPSTREAM_BYTES} bytes`,
+    });
+  }
+
+  // 6. Map the upstream status (ADR §6.3). The API's own error text is never
   //    passed on: a 401 means OUR credential was refused, and a 500 means a
   //    provider failure. Either way the visitor gets "unavailable".
   if (upstream.status === 422) {
@@ -601,7 +738,7 @@ export async function handleChatRequest(request: Request, deps: BffDeps): Promis
     return reply(503, transportView("unavailable"), { upstream_status: upstream.status });
   }
 
-  // 5. Even a 200 is untrusted until it matches the contract. On failure the
+  // 7. Even a 200 is untrusted until it matches the contract. On failure the
   //    log says where the reply was wrong, never what it said.
   let parsed: unknown;
   try {
@@ -618,7 +755,7 @@ export async function handleChatRequest(request: Request, deps: BffDeps): Promis
     return reply(503, transportView("unavailable"), { upstream_status: 200, validation_error: validation.error });
   }
 
-  // 6. A valid reply must also be the reply to THIS request. The API echoes
+  // 8. A valid reply must also be the reply to THIS request. The API echoes
   //    the `query_id` it was sent: the preset's id, or null for free text. Any
   //    other id means an API bug or version mismatch, and showing the reply
   //    would put an evaluated answer under the wrong preset, or present a

@@ -20,7 +20,11 @@
  * 2. "Ask" sends `{"question": "..."}` and nothing else to the same-origin
  *    BFF at /api/chat. The browser never knows the ProcureRAG API's address;
  * 3. the reply (a `BrowserView`) is added to the visible history, with one
- *    clear label per state.
+ *    clear label per state;
+ * 4. warm on intent (ADR §8.4): the first time the chat scrolls into view,
+ *    it sends ONE `GET /api/chat/status`, so a sleeping ProcureRAG replica
+ *    starts waking while the visitor reads and types. One request per page
+ *    load: no polling, no retry.
  *
  * The history is a list in this component's memory. It is NOT model memory:
  * every question is sent on its own, and a reload empties the list.
@@ -39,11 +43,14 @@ import { ExternalLink } from "@/components/ExternalLink";
 import { presets, procureragLinks } from "@/content/procurerag";
 import {
   MAX_QUESTION_CHARS,
+  SERVICE_MESSAGES,
+  SERVICE_STATES,
   UI_STATES,
   countCharacters,
   presetIdFor,
   transportView,
   type BrowserView,
+  type ServiceState,
   type UiState,
 } from "@/lib/chat/contract";
 
@@ -127,6 +134,36 @@ async function askBff(question: string): Promise<BrowserView> {
   return transportView(response.status === 504 ? "timed_out" : "unavailable");
 }
 
+/**
+ * The one warm-up request. Always resolves to a state; never throws.
+ *
+ * The BFF waits up to 90 s for a cold `/health`; the browser waits 105 s, so
+ * the BFF's typed answer normally arrives first. If the browser's own limit
+ * fires anyway, the service may still be starting: `waking`.
+ */
+async function checkService(): Promise<ServiceState> {
+  try {
+    const response = await fetch("/api/chat/status", { signal: AbortSignal.timeout(BROWSER_TIMEOUT_MS) });
+    const data: unknown = await response.json();
+    const state = (data as { state?: unknown } | null)?.state;
+    if (SERVICE_STATES.includes(state as ServiceState)) return state as ServiceState;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "TimeoutError") return "waking";
+  }
+  return "unavailable";
+}
+
+/**
+ * A wait in words. A daily limit can be hours away ("about 41,000 seconds"
+ * would mean nothing to a visitor), so long waits are rounded UP to minutes or
+ * hours: rounding down would invite a retry that is still too early.
+ */
+function formatWait(seconds: number): string {
+  if (seconds < 120) return `${seconds} second${seconds === 1 ? "" : "s"}`;
+  if (seconds < 7_200) return `${Math.ceil(seconds / 60)} minutes`;
+  return `${Math.ceil(seconds / 3_600)} hours`;
+}
+
 // ---------------------------------------------------------------------------
 // Rendering one result.
 // ---------------------------------------------------------------------------
@@ -166,7 +203,7 @@ function TurnResult({ turn, headingRef }: { turn: Turn; headingRef?: Ref<HTMLHea
       {view.text !== null && <p className="chat-turn__text">{view.text}</p>}
 
       {view.retry_after_seconds !== null && (
-        <p>You can ask again in about {view.retry_after_seconds} seconds.</p>
+        <p>You can ask again in about {formatWait(view.retry_after_seconds)}.</p>
       )}
 
       {view.guards.length > 0 && (
@@ -246,12 +283,35 @@ export function ChatPanel() {
   const [inputError, setInputError] = useState<string | null>(null);
   const [status, setStatus] = useState("");
   const [history, setHistory] = useState<Turn[]>([]);
+  // The warm-up line: null until the chat has been seen, then "checking", then the route's answer.
+  const [service, setService] = useState<ServiceState | "checking" | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const newestHeadingRef = useRef<HTMLHeadingElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const statusRequested = useRef(false);
   const nextTurnId = useRef(1);
 
   const characters = countCharacters(question);
   const presetId = presetIdFor(question);
+
+  // Warm on intent: an IntersectionObserver tells us when the chat first
+  // becomes visible. Then exactly one status request is sent, and the
+  // observer is switched off. A visitor who never scrolls to the chat never
+  // wakes the service. The ref (not state) guards "only once": it changes
+  // without a re-render, so no second request can slip in between.
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (panel === null) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (statusRequested.current || !entries.some((entry) => entry.isIntersecting)) return;
+      statusRequested.current = true;
+      observer.disconnect();
+      setService("checking");
+      void checkService().then(setService);
+    });
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, []);
 
   // After each new answer, move keyboard focus to its heading, so a keyboard or
   // screen-reader user lands on the result. Focus is moved only here and after
@@ -312,7 +372,7 @@ export function ChatPanel() {
     .join(" ");
 
   return (
-    <div className="chat">
+    <div className="chat" ref={panelRef}>
       <h3>Ask a question</h3>
       <p className="chat__disclosure">
         Questions are answered from a synthetic procurement knowledge base. When answers are
@@ -320,6 +380,18 @@ export function ChatPanel() {
         zero-data-retention model endpoint (today, Microsoft Azure), which does not store them.{" "}
         <strong>Do not enter personal or confidential information.</strong>
       </p>
+
+      {/*
+        The warm-up line. Deliberately NOT a live region: the page keeps one
+        (the status line below the form, DESIGN §5), and a second one would
+        interrupt a screen reader while the visitor is reading the presets.
+        Its text is read in order with the rest of the chat.
+      */}
+      {service !== null && (
+        <p className="chat__service small muted" data-service-state={service}>
+          {SERVICE_MESSAGES[service]}
+        </p>
+      )}
 
       <form onSubmit={submit} aria-label="Procurement question">
         {/*

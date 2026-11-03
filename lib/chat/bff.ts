@@ -64,12 +64,29 @@ import {
 export const PUBLIC_ROLE = "requester";
 
 /**
- * How long the BFF waits for the API: the provider's own 60 s timeout, plus
- * retrieval, plus a margin (ADR §8.4). The route's `maxDuration` (100 s) is
- * longer, so this typed timeout fires first and the visitor gets `timed_out`
- * instead of a platform error page.
+ * How long the BFF waits for the API (ADR §8.4).
+ *
+ * It must cover a COLD start, not only a warm answer. A visitor can ask while
+ * the warm-up check is still waking the replica (the Ask button is not
+ * disabled during the check), and the question then waits for the same cold
+ * start. Day 29 measured six cold paths, from 55 s to 84 s (ProcureRAG
+ * runbook §5.4 and Block 6). Three were over the first value, 75 s, and one
+ * real question timed out. 90 s is above all six, but only 6 s above the
+ * slowest: the 5 s startup probe (ProcureRAG, HER-271) should take up to
+ * 10 s off each cold path, and a new cold sample must confirm it. A warm
+ * answer takes 2-5 s.
+ *
+ * The other side is the route's `maxDuration` (100 s): this typed timeout must
+ * fire first, so the visitor gets `timed_out`, not a platform error page.
+ * Before this wait come two store calls (kill switch, admission), and after a
+ * reply one more (release). Each takes milliseconds and is capped at 3 s
+ * (STORE_TIMEOUT_MS), so the worst case is 3 + 3 + 90 + 3 = 99 s. Even then
+ * nothing is unsafe: a platform cut-off shows as "Took too long" in the
+ * browser, and a lease that was not released simply expires.
+ *
+ * If this grows, LEASE_TTL_MS must be re-derived (lib/chat/admission.ts).
  */
-export const UPSTREAM_TIMEOUT_MS = 75_000;
+export const UPSTREAM_TIMEOUT_MS = 90_000;
 
 /**
  * The largest API reply the BFF will read: 64 KiB.
@@ -150,7 +167,7 @@ export type BffDeps = {
   now?: () => number;
   /** A new lease id per request. Tests set it, to check which lease was released. */
   makeLeaseId?: () => string;
-  /** Override for tests only, so a "timeout" takes milliseconds instead of 75 s. */
+  /** Override for tests only, so a "timeout" takes milliseconds instead of 90 s. */
   timeoutMs?: number;
   log?: (entry: ChatLogEntry) => void;
 };
@@ -671,7 +688,7 @@ export async function handleChatRequest(request: Request, deps: BffDeps): Promis
   };
 
   // 5. Exactly one call to the API.
-  //    - `AbortSignal.timeout` aborts the call after 75 s, including reading
+  //    - `AbortSignal.timeout` aborts the call after 90 s, including reading
   //      the reply's body, so a server that sends headers and then stalls is
   //      a timeout too;
   //    - `redirect: "error"`: the API never redirects. If something on the
@@ -693,7 +710,7 @@ export async function handleChatRequest(request: Request, deps: BffDeps): Promis
     });
     if (upstream.status === 200) {
       // Bounded like the browser's body: an oversized reply is never buffered
-      // whole, and never parsed. Reading stays inside this `try`, so the 75 s
+      // whole, and never parsed. Reading stays inside this `try`, so the 90 s
       // timeout still covers a reply that starts and then stalls.
       const read = await readBodyWithLimit(upstream, MAX_UPSTREAM_BYTES);
       if (read.kind === "too_large") upstreamTooLarge = true;

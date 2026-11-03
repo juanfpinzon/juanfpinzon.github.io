@@ -1,11 +1,11 @@
 /*
  * The warm-up check behind GET /api/chat/status (ADR §8.4, "warm on intent").
  *
- * The Azure app scales to ZERO replicas when idle (that is what keeps it
- * inside the US$10/month cloud ceiling), and starting one takes about a
- * minute. Waiting that minute INSIDE a question would often hit the 75 s
- * question timeout. So when a visitor scrolls to the chat, the browser makes
- * ONE status request, and this handler calls the API's `/health`:
+ * The Azure app scales to ZERO replicas when idle (that is what keeps a
+ * normal month near the US$10/month cloud budget target), and starting one
+ * takes 55-84 s (Day 29). Waiting for that INSIDE a question uses most of the
+ * question's 90 s timeout. So when a visitor scrolls to the chat, the browser
+ * makes ONE status request, and this handler calls the API's `/health`:
  *
  *   browser --GET /api/chat/status--> BFF --GET /health (no token, up to 90 s)--> ProcureRAG API
  *

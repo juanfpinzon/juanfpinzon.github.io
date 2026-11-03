@@ -24,7 +24,9 @@
  * 4. warm on intent (ADR §8.4): the first time the chat scrolls into view,
  *    it sends ONE `GET /api/chat/status`, so a sleeping ProcureRAG replica
  *    starts waking while the visitor reads and types. One request per page
- *    load: no polling, no retry.
+ *    load: no polling, no retry. The check is advice, not a gate: Ask stays
+ *    enabled while it runs. A question sent during the check waits for the
+ *    same cold start, which the BFF's 90 s timeout covers (lib/chat/bff.ts).
  *
  * The history is a list in this component's memory. It is NOT model memory:
  * every question is sent on its own, and a reload empties the list.
@@ -56,7 +58,7 @@ import {
 
 /**
  * The browser gives up after 105 s (ADR §8.4): a little longer than the BFF's
- * own 75 s upstream timeout and its 100 s function limit, so the BFF's typed
+ * own 90 s upstream timeout and its 100 s function limit, so the BFF's typed
  * `timed_out` answer normally arrives first. There is no automatic retry.
  */
 const BROWSER_TIMEOUT_MS = 105_000;
@@ -347,7 +349,7 @@ export function ChatPanel() {
     const asked = question;
     setInputError(null);
     setPending(true);
-    setStatus("Waiting for the service… If it was idle, it can take about a minute to wake up.");
+    setStatus("Waiting for the service… If it was idle, it can take up to a minute and a half to wake up.");
 
     const view = await askBff(asked);
 

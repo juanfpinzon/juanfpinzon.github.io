@@ -1,0 +1,110 @@
+# CI: the portfolio's credential-free merge gate (Day 29 review, HER-297).
+#
+# The same seven commands as the local gate in ProcureRAG's
+# docs/learning-log.md (Day 29, "Required verification", Portfolio), in the
+# same order, so a red step can be reproduced on a laptop:
+#
+#   npm ci                 exactly the locked dependencies
+#   npm audit --omit=dev   known vulnerabilities in what ships (not the dev tools)
+#   npm run typecheck      route types + tsc
+#   npm run lint           ESLint
+#   npm run build          the production build: the artifact the tests run against
+#   npm test               Playwright against that build (playwright.config.ts)
+#   git diff --check       whitespace errors in this change
+#
+# What this workflow never needs: a secret. Every chat test runs against
+# stand-ins started by playwright.config.ts (a fake quota store on a local
+# port, and an API URL nobody listens on), with placeholder settings that are
+# not credentials. The real-store proof (tests/chat-admission-redis.spec.ts)
+# runs only when ADMISSION_TEST_REDIS_REST_URL and _TOKEN are set, and this
+# file never sets them, so its 10 tests are SKIPPED here. That proof stays a
+# separate, hand-run step with the real store (ProcureRAG
+# docs/day-29-runbook.md, "The real-store proof").
+
+name: CI
+
+on:
+  # `pull_request` (NOT `pull_request_target`): the PR's code runs with a
+  # read-only token and no repository secrets. `pull_request_target` would run
+  # it in the base branch's context, WITH secrets and a write-capable token.
+  # No branch filter: every PR is gated, whatever its base.
+  pull_request:
+  push:
+    # The integration branch now, and master after the Day 30 cutover. The
+    # legacy Jekyll master has no package.json, but it also has no copy of
+    # this file, so nothing runs there until the cutover brings both.
+    branches: [0ct26-overhaul, master]
+
+# Least privilege for the automatic GITHUB_TOKEN: read the repository, nothing else.
+permissions:
+  contents: read
+
+# One group per PR (its number) or per pushed commit (its SHA). A new push to
+# the same PR cancels the older run, whose result nobody needs any more.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+env:
+  # Next.js sends anonymous build telemetry unless told not to.
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  build-and-test:
+    name: build-and-test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      # Every `uses:` is pinned to a full commit SHA (a tag can be moved; a SHA
+      # cannot). The release tag stays in the comment for humans.
+      - name: Check out the commit under test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Do not leave the token in .git/config: no later step pushes.
+          persist-credentials: false
+          # This commit and its parent, for `git diff --check` at the end.
+          fetch-depth: 2
+
+      - name: Install Node 22 (package.json "engines")
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          # Caches npm's download cache, keyed on package-lock.json. Speed
+          # only: `npm ci` below still decides what gets installed.
+          cache: npm
+
+      - name: npm ci
+        # Fails if package.json and package-lock.json disagree, instead of
+        # quietly resolving to whatever versions are newest today.
+        run: npm ci
+
+      - name: npm audit --omit=dev
+        run: npm audit --omit=dev
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Production build
+        # `next/font/google` downloads the three fonts here, at build time
+        # (app/layout.tsx): a public download, no credential.
+        run: npm run build
+
+      - name: Install Playwright's Chromium (the version in package-lock.json)
+        # --with-deps adds the system libraries Chromium needs on Ubuntu.
+        run: npx playwright install --with-deps chromium
+
+      - name: Playwright (the real-store spec skips itself without its two variables)
+        # GitHub sets CI=true, so a `test.only` left in a spec fails the run
+        # (`forbidOnly` in playwright.config.ts).
+        run: npm test
+
+      - name: git diff --check (this change only)
+        # HEAD^1 is the base this change is compared with: on a pull_request
+        # run, HEAD is GitHub's test merge of the PR into its base, and HEAD^1
+        # is the base's tip; on a push, it is the branch's previous commit.
+        # Not the whole tree: the legacy Jekyll files (_config.yml, index.md)
+        # carry trailing spaces that this work never touched.
+        run: git diff --check HEAD^1 HEAD

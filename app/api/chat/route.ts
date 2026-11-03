@@ -34,7 +34,7 @@ export const runtime = "nodejs";
 
 /**
  * Route segment config (ADR §8.4): the longest a deployment platform may let
- * this function run, in seconds. 100 s is above the BFF's own 75 s upstream
+ * this function run, in seconds. 100 s is above the BFF's own 90 s upstream
  * timeout, so the BFF answers `timed_out` itself before the platform cuts
  * the function off, and below Vercel Hobby's 300 s maximum. The browser
  * waits 105 s (components/ChatPanel.tsx), so this typed answer arrives first.

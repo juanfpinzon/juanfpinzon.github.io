@@ -342,4 +342,37 @@ test.describe("warm on intent: one status request when the chat is first seen", 
       await expect(askButton(page)).toBeEnabled();
     });
   }
+
+  test("asking while the check is still running: the question is sent at once, and both finish", async ({ page }) => {
+    // The race from the Day 29 review: a visitor scrolls to the chat and asks
+    // straight away, while the check is still waking a cold replica. Ask is
+    // deliberately NOT disabled during the check. The question is sent
+    // without waiting for it, and the BFF's 90 s timeout covers the cold
+    // start both requests wait for (tests/deployment-config.spec.ts).
+    //
+    // The check's reply is held until the question has its answer, so the
+    // order is fixed: check sent, question sent and answered, check answered.
+    let answerCheck = () => {};
+    const checkHeld = new Promise<void>((resolve) => (answerCheck = resolve));
+    await page.route("**/api/chat/status", async (route) => {
+      await checkHeld;
+      await route.fulfill({ status: 200, json: { state: "ready" } });
+    });
+    const sent = await mockChat(page, view("not_generated"));
+
+    await page.locator(".chat").scrollIntoViewIfNeeded();
+    await expect(warmUpLine(page)).toHaveText(SERVICE_MESSAGES.checking);
+    await expect(askButton(page)).toBeEnabled();
+
+    await ask(page, "What does GRNI mean?");
+    await expect(answers(page).last().getByRole("heading", { level: 4 })).toHaveText(/Retrieval only$/);
+    expect(sent).toEqual([{ question: "What does GRNI mean?" }]);
+    // The answer arrived while the check was still running.
+    await expect(warmUpLine(page)).toHaveText(SERVICE_MESSAGES.checking);
+
+    // The check's late reply updates its own line, and leaves the answer alone.
+    answerCheck();
+    await expect(warmUpLine(page)).toHaveText(SERVICE_MESSAGES.ready);
+    await expect(answers(page)).toHaveCount(1);
+  });
 });

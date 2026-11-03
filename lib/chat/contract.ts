@@ -96,9 +96,9 @@ export const UI_MESSAGES: Record<UiState, string> = {
 
 /**
  * What the status route says about the ProcureRAG service. The Azure app scales
- * to zero when idle, and waking it takes about a minute. So when a visitor
- * scrolls to the chat, the browser asks once, and the BFF calls the API's free
- * `/health` (never `/query`, never the LLM):
+ * to zero when idle, and waking it takes up to a minute and a half. So when a
+ * visitor scrolls to the chat, the browser asks once, and the BFF calls the
+ * API's free `/health` (never `/query`, never the LLM):
  *
  * - `ready`: `/health` answered "ok". The next question will not wait for a cold start;
  * - `waking`: `/health` did not answer within the BFF's 90 s. The service may
@@ -119,10 +119,10 @@ export type StatusView = { state: ServiceState };
  * the one status request is on its way; the other four are the route's replies.
  */
 export const SERVICE_MESSAGES: Record<ServiceState | "checking", string> = {
-  checking: "Checking the live service. If it was idle, waking it takes about a minute.",
+  checking: "Checking the live service. If it was idle, waking it takes up to a minute and a half.",
   ready: "The live service is awake.",
   waking: "The live service is still starting. Your first question may take longer, or time out.",
-  busy: "The warm-up check has reached its daily limit. If the service is idle, your first question can take about a minute.",
+  busy: "The warm-up check has reached its daily limit. If the service is idle, your first question can take up to a minute and a half.",
   unavailable: UI_MESSAGES.unavailable,
 };
 

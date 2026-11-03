@@ -262,7 +262,7 @@ export const progression = [
 
 /** What comes next. Nothing in this list exists yet. */
 export const roadmap = [
-  "A hosted chain with a persistent quota, a spend ceiling, a kill switch and a recorded launch smoke test.",
+  "A hosted chain with a persistent quota, a provider-enforced LLM spend limit, a cloud budget alert, a kill switch and a recorded launch smoke test.",
   "The public cutover of this site, with the old CV link kept working.",
   "A repair for Q091's incomplete answer, with its own regression gate.",
 ] as const;

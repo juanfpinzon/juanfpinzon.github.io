@@ -57,15 +57,22 @@ export const CHAT_IN_FLIGHT_CAP = 2;
  * timeout, the work may still be running on Azure, so the lease must outlive
  * the worst case FROM ADMISSION:
  *
- *   Azure cold start (measured 59-72 s, Day 23/24)
- *   + retrieval (a few seconds on 1 vCPU)
+ *   the request reaches the API by the BFF's timeout at the latest
+ *       (90 s, UPSTREAM_TIMEOUT_MS; it covers every measured cold start)
+ *   + retrieval (3-4 s measured on 1 vCPU; allow 10 s for 2 questions at once)
  *   + ONE provider call (60 s timeout, with SDK retries off)
- *   = about 140 s, so 180 s leaves a margin of about 40 s.
+ *   = 160 s, and the written margin is 20%: 1.2 x 160 = 192 s.
  *
- * PROVISIONAL: Day 29 Block 5 measures the deployed chain and re-derives it.
- * If any of those timeouts grows, this number must be re-derived too.
+ * 240 s (4 minutes) leaves 48 s above that. Re-derived after the Day 29
+ * review: the first value, 180 s, was provisional, and once the measured cold
+ * starts reached 84 s it was only a few seconds above the bound. The cost of
+ * the longer lease: after a timeout, a slot stays blocked for up to 4 minutes
+ * instead of 3. That is availability, not money, and it fails closed.
+ *
+ * tests/deployment-config.spec.ts checks this arithmetic. If a timeout grows,
+ * that test fails until this number is re-derived.
  */
-export const LEASE_TTL_MS = 180_000;
+export const LEASE_TTL_MS = 240_000;
 
 /**
  * Warm-up checks per UTC day: their OWN limits, separate from the paid 54.

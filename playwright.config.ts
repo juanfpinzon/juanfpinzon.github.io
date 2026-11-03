@@ -1,5 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
-import { PLACEHOLDER_SERVICE_TOKEN, TEST_UPSTREAM_URL } from "./tests/routes";
+import {
+  FAKE_STORE_PORT,
+  FAKE_STORE_URL,
+  PLACEHOLDER_CLIENT_HASH_SECRET,
+  PLACEHOLDER_SERVICE_TOKEN,
+  PLACEHOLDER_STORE_TOKEN,
+  TEST_UPSTREAM_URL,
+} from "./tests/routes";
 
 /**
  * Playwright runs every test against the PRODUCTION build, not the dev server.
@@ -34,17 +41,30 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  webServer: {
-    command: `npm run start -- --hostname 127.0.0.1 --port ${PORT}`,
-    url: BASE_URL,
-    reuseExistingServer: false,
-    timeout: 60_000,
-    // The BFF's server-only settings, given to the running server only (see
-    // tests/routes.ts). They point at a port where nothing listens, so every
-    // chat question that passes the BFF's checks ends as `unavailable`.
-    env: {
-      PROCURERAG_API_URL: TEST_UPSTREAM_URL,
-      PROCURERAG_SERVICE_TOKEN: PLACEHOLDER_SERVICE_TOKEN,
+  webServer: [
+    {
+      // The stand-in quota store (Day 29). Started first; `port` makes
+      // Playwright wait until it accepts connections.
+      command: `node tests/fake-upstash-server.mjs ${FAKE_STORE_PORT} ${PLACEHOLDER_STORE_TOKEN}`,
+      port: FAKE_STORE_PORT,
+      reuseExistingServer: false,
     },
-  },
+    {
+      command: `npm run start -- --hostname 127.0.0.1 --port ${PORT}`,
+      url: BASE_URL,
+      reuseExistingServer: false,
+      timeout: 60_000,
+      // The BFF's server-only settings, given to the running server only (see
+      // tests/routes.ts). The API URL is a blocked port, so every chat question
+      // that passes the BFF's checks ends as `unavailable`.
+      env: {
+        PROCURERAG_API_URL: TEST_UPSTREAM_URL,
+        PROCURERAG_SERVICE_TOKEN: PLACEHOLDER_SERVICE_TOKEN,
+        PROCURERAG_CLIENT_HASH_SECRET: PLACEHOLDER_CLIENT_HASH_SECRET,
+        UPSTASH_REDIS_REST_URL: FAKE_STORE_URL,
+        UPSTASH_REDIS_REST_TOKEN: PLACEHOLDER_STORE_TOKEN,
+        PROCURERAG_BUDGET_DOMAIN: "playwright",
+      },
+    },
+  ],
 });

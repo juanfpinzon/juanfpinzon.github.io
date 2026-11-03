@@ -13,6 +13,7 @@ import {
   type BffConfig,
   type ChatLogEntry,
 } from "@/lib/chat/bff";
+import { fakeStore, refused, type FakeStoreOptions } from "./fake-admission-store";
 import {
   MAX_BODY_BYTES,
   MAX_QUESTION_CHARS,
@@ -34,13 +35,25 @@ import {
  * role, no decision, the right query_id, exactly one call) and what came back
  * (only BrowserView fields, IDs-only sources, no secret).
  *
- * What the fake cannot prove: that the real ProcureRAG API answers this way
- * (the Python probe and the Day 28 local real-HTTP run do), or that the route
- * file wires the real environment in (tests/chat-route.spec.ts does).
+ * Since Day 29 every request also meets the quota store (kill switch, then
+ * one admission). Here it is a fake that admits everything and records each
+ * call (tests/fake-admission-store.ts); the last part of this file tests the
+ * admission and lease rules against it.
+ *
+ * What the fakes cannot prove: that the real ProcureRAG API answers this way
+ * (the Python probe and the Day 28 local real-HTTP run do), that the route
+ * file wires the real environment in (tests/chat-route.spec.ts does), or that
+ * the real Lua counts correctly (tests/chat-admission-redis.spec.ts does).
  */
 
-// A made-up credential for the fake upstream. Never a real token.
-const CONFIG: BffConfig = { apiUrl: "https://procurerag.example.invalid", serviceToken: "fake-token-for-unit-tests" };
+// Made-up credentials for the fakes. Never real ones.
+const CONFIG: BffConfig = {
+  apiUrl: "https://procurerag.example.invalid",
+  serviceToken: "fake-token-for-unit-tests",
+  clientHashSecret: "fake-client-hash-secret-for-unit-tests-only",
+};
+/** The client address the tests "were given by the platform" (RFC 5737 documentation range). */
+const CLIENT_ADDRESS = "198.51.100.23";
 
 const Q001 = presets[0].text; // "What approval is required for a EUR 60,000 purchase order?"
 const Q091_TEXT = "What approvals and security evidence do I need for a EUR 120,000 SaaS renewal?";
@@ -129,7 +142,8 @@ type Scenario = {
   expectState: UiState;
   /** The query_id the upstream body must carry (undefined = none). Checked only when upstream is called. */
   expectQueryId?: string;
-  demoEnabled?: boolean;
+  /** How the fake quota store behaves (default: kill switch on, everything admitted). */
+  store?: FakeStoreOptions;
 };
 
 const SCENARIOS: Scenario[] = [
@@ -314,23 +328,35 @@ const SCENARIOS: Scenario[] = [
     body: browserJson({ question: Q001 }),
     expectHttp: 503,
     expectState: "unavailable",
-    demoEnabled: false,
+    store: { enabled: false },
   },
 ];
 
-/** Run one request through the real handler. Returns what the browser and the upstream saw, and the logs. */
-async function run(request: Request, upstream?: Upstream, overrides: { demoEnabled?: boolean; config?: BffConfig | null } = {}) {
+type RunOverrides = {
+  config?: BffConfig | null;
+  /** Options for the fake store, or `null` for "no store configured". */
+  store?: FakeStoreOptions | null;
+  clientAddress?: string | null;
+  now?: number;
+};
+
+/** Run one request through the real handler. Returns what the browser, the upstream and the store saw, and the logs. */
+async function run(request: Request, upstream?: Upstream, overrides: RunOverrides = {}) {
   const fake = fakeUpstream(upstream);
+  const store = fakeStore(overrides.store ?? {});
   const logs: ChatLogEntry[] = [];
   const response = await handleChatRequest(request, {
     config: overrides.config === undefined ? CONFIG : overrides.config,
-    demoEnabled: overrides.demoEnabled ?? true,
+    store: overrides.store === null ? null : store.store,
+    clientAddress: overrides.clientAddress === undefined ? CLIENT_ADDRESS : overrides.clientAddress,
     fetchUpstream: fake.fetchUpstream,
+    now: overrides.now === undefined ? undefined : () => overrides.now!,
+    makeLeaseId: () => "lease-under-test",
     timeoutMs: 50, // a "timeout" in 50 ms, not 75 s
     log: (entry) => logs.push(entry),
   });
   const raw = await response.text();
-  return { response, raw, view: JSON.parse(raw) as BrowserView, calls: fake.calls, logs };
+  return { response, raw, view: JSON.parse(raw) as BrowserView, calls: fake.calls, logs, store };
 }
 
 /** The contract of every BFF -> browser view (the probe's `check_browser_view`, plus the secret boundary). */
@@ -348,8 +374,10 @@ function expectSafeBrowserView(response: Response, raw: string, view: BrowserVie
   }
   expect(view.message).toBe(UI_MESSAGES[view.state]);
   if (view.state === "pending_approval" || view.state === "not_generated") expect(view.text).toBeNull();
-  // The secret, its header and its name never reach the browser.
+  // The secrets, the header, the names and the client's address never reach the browser.
   expect(raw).not.toContain(CONFIG.serviceToken);
+  expect(raw).not.toContain(CONFIG.clientHashSecret);
+  expect(raw).not.toContain(CLIENT_ADDRESS);
   expect(raw).not.toContain("Bearer");
   expect(raw).not.toContain("PROCURERAG_");
   expect(raw).not.toContain(RUN_ID);
@@ -361,7 +389,7 @@ test.describe("the 20 probe scenarios, on the real handler", () => {
   for (const scenario of SCENARIOS) {
     test(scenario.name, async () => {
       const { response, raw, view, calls } = await run(browserRequest(scenario.body), scenario.upstream, {
-        demoEnabled: scenario.demoEnabled,
+        store: scenario.store,
       });
 
       expect(response.status).toBe(scenario.expectHttp);
@@ -706,8 +734,178 @@ test.describe("configuration and logs", () => {
     expect(free.logs.map((entry) => entry.question_kind)).toEqual(["free_text"]);
     expect(refused.logs.map((entry) => [entry.question_kind, entry.http_status])).toEqual([["none", 422]]);
     const allLogs = JSON.stringify([...preset.logs, ...free.logs, ...refused.logs]);
-    for (const forbidden of [Q001, freeText, CONFIG.serviceToken, CONFIG.apiUrl]) {
+    const digest = preset.store.admitInputs[0].clientDigest;
+    for (const forbidden of [Q001, freeText, CONFIG.serviceToken, CONFIG.apiUrl, CONFIG.clientHashSecret, CLIENT_ADDRESS, digest]) {
       expect(allLogs).not.toContain(forbidden);
     }
+    // The quota counters ARE logged: numbers only.
+    expect(preset.logs[0].quota).toEqual({ global: 7, client: 2, in_flight: 1 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Day 29: the kill switch, admission and the lease (with the fake store).
+// ---------------------------------------------------------------------------
+
+test.describe("kill switch and admission: everything is decided before upstream", () => {
+  const ask = () => browserRequest(browserJson({ question: Q001 }));
+
+  test("kill switch off: 503 unavailable, the body is never read, nothing is counted or sent", async () => {
+    const neverRead = new ReadableStream({
+      pull() {
+        throw new Error("the body was read");
+      },
+    });
+    const request = new Request("http://localhost/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: neverRead,
+      duplex: "half",
+    } as RequestInit);
+
+    const { response, view, calls, logs, store } = await run(request, ok(), { store: { enabled: false } });
+    expect([response.status, view.state]).toEqual([503, "unavailable"]);
+    expect(calls).toHaveLength(0);
+    expect(store.calls).toEqual(["isChatEnabled"]);
+    expect(logs[0].reason).toBe("kill_switch");
+  });
+
+  test("a store that cannot be read counts as OFF (fail closed): 503, nothing sent", async () => {
+    const { response, view, calls, logs, store } = await run(ask(), ok(), { store: { failOn: "isChatEnabled" } });
+    expect([response.status, view.state]).toEqual([503, "unavailable"]);
+    expect(calls).toHaveLength(0);
+    expect(store.calls).toEqual(["isChatEnabled"]);
+    expect([logs[0].reason, logs[0].store_error]).toEqual(["store_error", "store unreachable"]);
+  });
+
+  test("no store configured: 503 unavailable, nothing sent", async () => {
+    const { response, calls, logs } = await run(ask(), ok(), { store: null });
+    expect(response.status).toBe(503);
+    expect(calls).toHaveLength(0);
+    expect(logs[0].reason).toBe("missing_store_config");
+  });
+
+  test("invalid bodies are refused BEFORE admission: no counter, no lease, nothing sent", async () => {
+    const bodies: [string, BodyInit][] = [
+      ["a role", browserJson({ question: Q001, role: "buyer" })],
+      ["broken JSON", '{"question": "What does GRNI'],
+      ["over 2 KB", '{"question": "What does GRNI mean?"' + " ".repeat(3000) + "}"],
+      ["a blank question", browserJson({ question: "   " })],
+    ];
+    for (const [label, body] of bodies) {
+      const { response, calls, store } = await run(browserRequest(body), ok());
+      expect([413, 422], label).toContain(response.status);
+      expect(calls, label).toHaveLength(0);
+      expect(store.calls, label).toEqual(["isChatEnabled"]);
+    }
+  });
+
+  test("no trusted client address: 503 unavailable, nothing counted, nothing sent", async () => {
+    const { response, view, calls, logs, store } = await run(ask(), ok(), { clientAddress: null });
+    expect([response.status, view.state]).toEqual([503, "unavailable"]);
+    expect(calls).toHaveLength(0);
+    expect(store.calls).toEqual(["isChatEnabled"]);
+    expect(logs[0].reason).toBe("no_client_address");
+  });
+
+  test("admission gets the injected clock, this request's lease id and an HMAC digest, never the address", async () => {
+    const now = Date.UTC(2026, 9, 28, 12, 0, 0);
+    const { store } = await run(ask(), ok({ query_id: "Q001" }), { now });
+    const [input] = store.admitInputs;
+    expect(input.nowMs).toBe(now);
+    expect(input.leaseId).toBe("lease-under-test");
+    expect(input.clientDigest).toMatch(/^[0-9a-f]{64}$/);
+    expect(input.clientDigest).not.toContain(CLIENT_ADDRESS);
+  });
+
+  for (const reason of ["global_cap", "client_cap"] as const) {
+    test(`${reason} reached: 429 busy until 00:00 UTC, nothing sent, no lease to release`, async () => {
+      // 23:00:00 UTC: exactly one hour before the daily counters reset.
+      const now = Date.UTC(2026, 9, 28, 23, 0, 0);
+      const { response, view, calls, logs, store } = await run(ask(), ok(), {
+        now,
+        store: { admission: refused(reason) },
+      });
+      expect([response.status, view.state, view.retry_after_seconds]).toEqual([429, "busy", 3_600]);
+      expect(calls).toHaveLength(0);
+      expect(store.calls).toEqual(["isChatEnabled", "admitChat"]);
+      expect(logs[0].reason).toBe(reason);
+      expect(logs[0]).not.toHaveProperty("lease");
+    });
+  }
+
+  test("in-flight cap reached: 429 busy with NO countdown (nobody knows when a slot frees)", async () => {
+    const { response, view, calls } = await run(ask(), ok(), { store: { admission: refused("in_flight_cap") } });
+    expect([response.status, view.state, view.retry_after_seconds]).toEqual([429, "busy", null]);
+    expect(calls).toHaveLength(0);
+  });
+
+  test("admission fails in the store: 503 unavailable, nothing sent (a broken store is not 'busy')", async () => {
+    const { response, view, calls, logs } = await run(ask(), ok(), { store: { failOn: "admitChat" } });
+    expect([response.status, view.state]).toEqual([503, "unavailable"]);
+    expect(calls).toHaveLength(0);
+    expect(logs[0].reason).toBe("store_error");
+  });
+});
+
+test.describe("the lease: released only when the upstream work is provably over", () => {
+  const ask = () => browserRequest(browserJson({ question: Q001 }));
+  const refusedConnection: Upstream = () => {
+    throw new TypeError("fetch failed", { cause: Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }) });
+  };
+  const resetAfterSending: Upstream = () => {
+    throw new TypeError("fetch failed", { cause: Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" }) });
+  };
+
+  test("a timeout KEEPS the lease: Azure and the provider may still be working", async () => {
+    const { response, view, store, logs } = await run(ask(), hangs);
+    expect([response.status, view.state]).toEqual([504, "timed_out"]);
+    expect(store.calls).toEqual(["isChatEnabled", "admitChat"]);
+    expect(store.released).toEqual([]);
+    expect(logs[0].lease).toBe("kept_until_expiry");
+  });
+
+  test("a connection that was never made RELEASES the lease: the API never saw the request", async () => {
+    const { response, store, logs } = await run(ask(), refusedConnection);
+    expect(response.status).toBe(503);
+    expect(store.released).toEqual(["lease-under-test"]);
+    expect(logs[0]).toMatchObject({ reason: "network_error", lease: "released" });
+  });
+
+  test("a reset AFTER the request was sent keeps the lease (it may have reached the API)", async () => {
+    for (const upstream of [resetAfterSending, unreachable]) {
+      const { response, store } = await run(ask(), upstream);
+      expect(response.status).toBe(503);
+      expect(store.released).toEqual([]);
+    }
+  });
+
+  const completedReplies: [string, Upstream][] = [
+    ["a valid 200", ok({ query_id: "Q001" })],
+    ["401 (our token refused)", reply(401, '{"detail": "missing or invalid service credential"}')],
+    ["422", reply(422, '{"detail": "invalid"}')],
+    ["429", reply(429, "", { "Retry-After": "40" })],
+    ["500 (provider failure)", reply(500, "Internal Server Error")],
+    ["a malformed 200", reply(200, '{"status": "answered"')],
+    ["an oversized 200", ok({ status: "answered", query_id: "Q001", text: "a".repeat(MAX_UPSTREAM_BYTES), sources: SOURCES })],
+  ];
+  for (const [label, upstream] of completedReplies) {
+    test(`${label}: the lease is released once, and nothing is refunded`, async () => {
+      const { store, logs, calls } = await run(ask(), upstream);
+      expect(calls).toHaveLength(1);
+      // Exactly these three store calls. A refund (or any other write) would
+      // be a fourth call, and fail here: the day counters count attempts.
+      expect(store.calls).toEqual(["isChatEnabled", "admitChat", "releaseChat"]);
+      expect(store.released).toEqual(["lease-under-test"]);
+      expect(logs[0].lease).toBe("released");
+    });
+  }
+
+  test("a failed release does not change the visitor's answer (the lease just expires later)", async () => {
+    const { response, view, logs } = await run(ask(), ok({ status: "answered", query_id: "Q001", text: "An answer [2].", sources: SOURCES }), {
+      store: { failOn: "releaseChat" },
+    });
+    expect([response.status, view.state]).toEqual([200, "answered"]);
+    expect(logs[0].lease).toBe("release_failed");
   });
 });

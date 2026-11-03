@@ -183,6 +183,11 @@ These are ceilings to design to, not price quotes. Azure budgets only **alert**.
 
 If the Azure subscription is still the Day 23 free trial (spending limit `On`), the trial's own limit also stops it. Check its status and expiry on Day 29.
 
+**Day 29 result: only the LLM figure is enforced.** The OpenRouter key's US$5 limit is applied by the provider (a 402 past it). The cloud figure is a **budget target**, not a cap:
+- a normal scale-to-zero month costs about US$5 (the registry), but the BFF-bounded case is about US$23.82, and one replica awake all month about US$77.36. Max 1 replica bounds the bill at about US$77, not US$10;
+- an unauthenticated request still wakes the replica (§8.4, residual risk), and nothing in Azure stops a resource on cost after pay-as-you-go. A budget only emails, from cost data that is hours late;
+- so the US$10 is held by the budget alert, an owner who acts on it (kill switch, then ingress off, then key revocation), and nothing else. Say "a US$10 Azure budget target with alerts and a manual shutdown procedure", never "a hard cloud spending cap".
+
 ### 8.3 Quota, concurrency and bounds
 
 | Control | Decision | Status |
@@ -206,7 +211,7 @@ If the Azure subscription is still the Day 23 free trial (spending limit `On`), 
 - a `DECR` does not say *which* request ended, so a double or late release corrupts the count.
 
 **Decided: one lease per request, in a Redis sorted set** (`inflight`):
-- a **member** is one request's random lease id. Its **score** is the time the lease expires. The provisional lease is 180 s; Day 29 must verify that it is longer than the measured cold-start + provider-timeout + cleanup path, not merely longer than Vercel `maxDuration`;
+- a **member** is one request's random lease id. Its **score** is the time the lease expires. The lease is 240 s (re-derived on Day 29, below): longer than the measured cold-start + provider-timeout + cleanup path, not merely longer than Vercel `maxDuration`;
 - **admission** is one Lua script. Redis runs a script atomically: no other command runs between its steps.
   1. `ZREMRANGEBYSCORE inflight -inf <now>` drops expired leases.
   2. If `ZCARD inflight` ≥ 2, or the global day counter or this client's day counter is at its cap: refuse (`busy`) and change nothing.
@@ -214,29 +219,33 @@ If the Azure subscription is still the Day 23 free trial (spending limit `On`), 
 
   The script checks every cap before it changes anything, so a refusal reserves nothing and no rollback `DECR` is needed;
 - **release:** `ZREM inflight <lease id>` only after a completed upstream response or a definitive upstream error. Releasing twice, or after expiry, is harmless. A BFF timeout, browser disconnect or function termination does **not** release: the backend/provider may still be running, so the lease remains until expiry;
-- **lease TTL:** provisional 180 s. It must exceed the measured worst-case continuation from admission (including cold start and the provider's 60 s timeout) with a safety buffer. Comparing it only with Vercel `maxDuration` is insufficient because Azure work can continue after the Vercel function stops. If any component timeout increases, this TTL must be re-derived;
+- **lease TTL: 240 s.** It must exceed the measured worst-case continuation from admission (including cold start and the provider's 60 s timeout) with a safety buffer. Comparing it only with Vercel `maxDuration` is insufficient because Azure work can continue after the Vercel function stops. If any component timeout increases, this TTL must be re-derived (`tests/deployment-config.spec.ts` checks the arithmetic):
+  - the request reaches the API by the BFF's 90 s timeout at the latest (§8.4), then retrieval (3–4 s measured; 10 s allowed for two at once), then one provider call (60 s): 160 s. With the 20% margin, 192 s;
+  - the provisional 180 s did not survive Day 29. With the old 75 s timeout it held, but the slowest measured cold path (84 s) left it only a few seconds above its bound. Raising the timeout to 90 s put the bound at 192 s, above 180 s;
 - `now` is passed in by the BFF, not read inside the script. Clock skew between function instances is milliseconds against this lease;
 - the day counters count attempts: a request that fails upstream is not refunded (the same rule as a manual retry).
 
-**Residual:** after a BFF timeout, a lease may conservatively occupy a slot until expiry even if Azure stopped immediately. That can temporarily reduce availability, but it fails closed for concurrency and spend. Day 29 measures the end-to-end continuation window and confirms the 180 s provisional TTL before public chat is enabled.
+**Residual:** after a BFF timeout, a lease may conservatively occupy a slot until expiry (up to 4 minutes) even if Azure stopped immediately. That can temporarily reduce availability, but it fails closed for concurrency and spend. The bound assumes the request reaches the API before the BFF gives up, which holds while the timeout stays above every cold start. Re-measure cold questions after any change to the image or the probes.
 
 ### 8.4 Timeouts and cold start
 
 | Hop | Timeout | Reason |
 |---|---|---|
 | Provider call (inside the API) | 60 s (existing) | Day 19–21 setting |
-| BFF → API `/query` | 75 s | provider 60 s + retrieval + margin |
-| BFF → API `/health` (warm-up) | 90 s | covers the measured 59.07–71.5 s cold starts |
+| BFF → API `/query` | 90 s (75 s until the Day 29 review) | covers a whole cold start (Day 29: 55–84 s measured), because a question can be sent while the warm-up is still running; warm answers take 2–5 s |
+| BFF → API `/health` (warm-up) | 90 s | covers the measured cold starts (Day 23/24: 59.07–71.5 s; Day 29: up to 84 s) |
 | Vercel `maxDuration` for both routes | 100 s | under the Hobby 300 s maximum |
 | Browser `AbortController` | 105 s | slightly above the BFF, so the BFF's typed state wins |
 
 **Scale-to-zero (min 0 / max 1)** is decided by the US$10 cloud ceiling: a warm replica bills all the time. To avoid a 60–70 s wait inside the question itself, the page **warms on intent**:
 - when the demo section is opened, the browser calls `GET /api/chat/status`, and the BFF calls the API's free `/health` (no LLM);
-- the UI shows "Waking the service (about a minute)";
+- the UI shows "Checking the live service. If it was idle, waking it takes up to a minute and a half." (Day 29: "about a minute" was too short for the measured 55–84 s);
 - the status route has its own per-client and global limit, so it cannot be used to keep the replica warm all day;
 - there are no repeated POSTs to warm the service.
 
-A question sent to a cold replica can still exceed 75 s. It then ends in `timed_out`, honestly.
+The warm-up is advice, not a gate: Ask stays enabled while it runs. Disabling it would make every visitor wait up to 84 s before typing, and it would need a re-enable path for each status outcome. Instead, the question's own timeout covers a cold start. A question sent while the check is still running waits for the same cold start, and has at least as long as the check had.
+
+A cold start slower than 90 s still ends in `timed_out`, honestly. The 90 s is only 6 s above the slowest Day 29 sample, so a 5 s startup probe (ProcureRAG, HER-271) and a new cold sample must confirm the margin before the public launch.
 
 **Residual risk:** the Azure ingress is public, so **any** request to it (even one refused with 401) wakes the replica, at the cost of compute time. The bounds are max 1 replica, the Azure budget alert, and the kill switch (§8.6). Day 29 computes the worst-case month (one replica running 24/7) from the current price sheet. If that exceeds US$10, the alert threshold and the kill-switch procedure must catch it within a day.
 

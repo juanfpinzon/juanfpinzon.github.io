@@ -352,7 +352,7 @@ async function run(request: Request, upstream?: Upstream, overrides: RunOverride
     fetchUpstream: fake.fetchUpstream,
     now: overrides.now === undefined ? undefined : () => overrides.now!,
     makeLeaseId: () => "lease-under-test",
-    timeoutMs: 50, // a "timeout" in 50 ms, not 75 s
+    timeoutMs: 50, // a "timeout" in 50 ms, not the real UPSTREAM_TIMEOUT_MS
     log: (entry) => logs.push(entry),
   });
   const raw = await response.text();

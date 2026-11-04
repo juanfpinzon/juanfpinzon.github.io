@@ -261,7 +261,7 @@ The browser contract is the one checked by ProcureRAG's `scripts/portfolio_contr
 | `pending_approval` | Needs a reviewer · neutral | fixed text. **No approve/edit/reject controls, ever** |
 | `invalid_question` | Check your question | 1–500 characters, procurement topic |
 | `busy` | Demo limit reached | `retry_after` if given. No automatic retry |
-| `timed_out` | Took too long | "It may have been starting up (about a minute after idle). Try again." |
+| `timed_out` | Took too long | "The service took too long to answer (it may have been starting up). Please try again in a minute." |
 | `unavailable` | Demo offline | links to the case study and code. The rest of the page works |
 
 - **Sources** show `doc_id` and `chunk_id`, plus a doc title only if the ADR's reviewed title map exists. **No invented snippets, file links or trace links.**

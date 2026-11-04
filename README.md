@@ -9,9 +9,11 @@ Thank you for your interest!!
 The `master` branch still publishes the legacy Jekyll site. The new portfolio is a
 Next.js App Router + TypeScript preview built from the Day 26 contracts
 (`DESIGN.md`, `docs/portfolio-content-inventory.md`, `docs/adr/portfolio-demo-architecture.md`).
-It is not deployed, and it has no live demo. Since Day 28 `/procurerag` has a chat whose
-server-side proxy (`POST /api/chat`, `app/api/chat/route.ts`) calls a separately running
-ProcureRAG API; without one, every question ends as "Demo offline".
+Since Day 28 `/procurerag` has a chat whose server-side proxy (`POST /api/chat`,
+`app/api/chat/route.ts`) calls a separately running ProcureRAG API; without one, every
+question ends as "Demo offline". Since Day 29 the preview is deployed to Vercel production,
+with the Azure API behind it, but it is not launched: the kill-switch key (below) holds
+`false` until Day 30, so the hosted chat also answers "Demo offline".
 
 Requirements: Node.js 22 (see `.nvmrc`) and npm.
 

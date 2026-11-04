@@ -69,12 +69,14 @@ export const PUBLIC_ROLE = "requester";
  * It must cover a COLD start, not only a warm answer. A visitor can ask while
  * the warm-up check is still waking the replica (the Ask button is not
  * disabled during the check), and the question then waits for the same cold
- * start. Day 29 measured six cold paths, from 55 s to 84 s (ProcureRAG
- * runbook §5.4 and Block 6). Three were over the first value, 75 s, and one
- * real question timed out. 90 s is above all six, but only 6 s above the
- * slowest: the 5 s startup probe (ProcureRAG, HER-271) should take up to
- * 10 s off each cold path, and a new cold sample must confirm it. A warm
- * answer takes 2-5 s.
+ * start. With the old 15 s startup probe, Day 29 measured six cold paths,
+ * from 55 s to 84 s (ProcureRAG runbook §5.4 and Block 6). Three were over
+ * the first value, 75 s, and one real question timed out. With the 5 s probe
+ * deployed (HER-271), three cold answered questions took 59.6-65.3 s, and a
+ * question sent while the check was still waking the replica was answered
+ * in 62.4 s (runbook R4, R5). All three took the fast image-pull path: the
+ * slow path is projected, not measured, at 75-81 s, about 10 s under 90 s.
+ * A warm answer takes 2-5 s.
  *
  * The other side is the route's `maxDuration` (100 s): this typed timeout must
  * fire first, so the visitor gets `timed_out`, not a platform error page.

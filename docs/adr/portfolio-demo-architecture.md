@@ -237,7 +237,7 @@ If the Azure subscription is still the Day 23 free trial (spending limit `On`), 
 | Vercel `maxDuration` for both routes | 100 s | under the Hobby 300 s maximum |
 | Browser `AbortController` | 105 s | slightly above the BFF, so the BFF's typed state wins |
 
-**Scale-to-zero (min 0 / max 1)** is decided by the US$10 cloud ceiling: a warm replica bills all the time. To avoid a 60–70 s wait inside the question itself, the page **warms on intent**:
+**Scale-to-zero (min 0 / max 1)** is decided by the US$10 cloud budget target (§8.2): a warm replica bills all the time, about US$77 a month. Scale-to-zero keeps a normal month near the target; it does not enforce it, and max 1 replica bounds the worst case at that US$77. To avoid a 60–70 s wait inside the question itself, the page **warms on intent**:
 - when the demo section is opened, the browser calls `GET /api/chat/status`, and the BFF calls the API's free `/health` (no LLM);
 - the UI shows "Checking the live service. If it was idle, waking it takes up to a minute and a half." (Day 29: "about a minute" was too short for the measured 55–84 s);
 - the status route has its own per-client and global limit, so it cannot be used to keep the replica warm all day;
@@ -245,9 +245,13 @@ If the Azure subscription is still the Day 23 free trial (spending limit `On`), 
 
 The warm-up is advice, not a gate: Ask stays enabled while it runs. Disabling it would make every visitor wait up to 84 s before typing, and it would need a re-enable path for each status outcome. Instead, the question's own timeout covers a cold start. A question sent while the check is still running waits for the same cold start, and has at least as long as the check had.
 
-A cold start slower than 90 s still ends in `timed_out`, honestly. The 90 s is only 6 s above the slowest Day 29 sample, so a 5 s startup probe (ProcureRAG, HER-271) and a new cold sample must confirm the margin before the public launch.
+A cold start slower than 90 s still ends in `timed_out`, honestly. With the old 15 s startup probe, the slowest Day 29 sample was 84 s, only 6 s under 90 s. The 5 s startup probe (ProcureRAG, HER-271) was then deployed and measured (ProcureRAG runbook R4, R5):
+- three cold answered questions took 59.6–65.3 s, 24.7 s or more under 90 s, with probe waits of 0.4–3.8 s;
+- the deployed race (a question sent 2.1 s after the warm-up check started, on a cold replica) was `answered` in 62.4 s.
 
-**Residual risk:** the Azure ingress is public, so **any** request to it (even one refused with 401) wakes the replica, at the cost of compute time. The bounds are max 1 replica, the Azure budget alert, and the kill switch (§8.6). Day 29 computes the worst-case month (one replica running 24/7) from the current price sheet. If that exceeds US$10, the alert threshold and the kill-switch procedure must catch it within a day.
+**Limit:** all three cold samples took the fast image-pull path. The slow path seen before the probe change (the pull starting about 14 s late and taking up to 29 s) did not recur, so it is projected, not measured: about 75–81 s, roughly 10 s under 90 s.
+
+**Residual risk:** the Azure ingress is public, so **any** request to it (even one refused with 401) wakes the replica, at the cost of compute time. The bounds are max 1 replica, the Azure budget alert, and the kill switch (§8.6). Day 29 computed the worst-case month (one replica running 24/7) at about US$77.36, above the US$10 target (§8.2). So the budget alert and the owner's response within 24 hours (kill switch, then ingress off) are what hold it. Cost data arrives hours late, so a runaway (about US$2.58 a day) can add about US$5 before that action lands.
 
 ### 8.5 Logging, tracing and retention
 

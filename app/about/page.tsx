@@ -48,13 +48,19 @@ function RoleEntry({ role }: { role: Role }) {
 
 export default function AboutPage() {
   return (
-    <>
-      <h1>About {person.name}</h1>
-      <p>
-        ML/AI engineer based in {person.location}. Three kinds of work, kept separate everywhere on
-        this site:
-      </p>
-      <ul>
+    <div className="container prose-page">
+      <div className="page-hero">
+        <p className="kicker">
+          <span className="kicker__index">About</span>
+          Experience · research · contact
+        </p>
+        <h1>About {person.name}</h1>
+        <p className="page-hero__lede">
+          ML/AI engineer based in {person.location}. Three kinds of work, kept separate everywhere
+          on this site:
+        </p>
+      </div>
+      <ul className="kinds">
         <li>
           <strong>Production ML:</strong> forecasting at PepsiCo since 2022.
         </li>
@@ -177,6 +183,6 @@ export default function AboutPage() {
           </li>
         </ul>
       </section>
-    </>
+    </div>
   );
 }

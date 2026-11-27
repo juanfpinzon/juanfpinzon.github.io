@@ -1,5 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <title>JP</title>
-  <rect width="64" height="64" rx="8" fill="#0F5E5A"/>
-  <text x="32" y="43" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="30" font-weight="600" fill="#FFFFFF">JP</text>
+  <rect width="64" height="64" rx="12" fill="#0D0F12"/>
+  <text x="32" y="40" text-anchor="middle" font-family="ui-monospace, 'SFMono-Regular', Menlo, monospace" font-size="26" font-weight="700" letter-spacing="-1" fill="#FFFFFF">JP</text>
+  <rect x="18" y="47" width="28" height="4" rx="2" fill="#2A3DE0"/>
 </svg>

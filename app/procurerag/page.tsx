@@ -73,6 +73,27 @@ const laneOrder: LaneId[] = ["demonstrated", "local", "historical", "red", "notB
 
 export default function ProcureRagPage() {
   return (
+    <div className="container">
+      <div className="page-hero">
+        <p className="kicker">
+          <span className="kicker__index">Case study</span>
+          Flagship project
+        </p>
+        <h1 id="case-title">ProcureRAG: a procurement-intelligence copilot</h1>
+        <p className="page-hero__lede">
+          Policy questions answered with cited sources, or an honest report of the missing
+          evidence. Retrieval built from primitives, measured on 93 labeled queries, guarded at
+          four layers and shipped through eval-gated CI.
+        </p>
+        <p className="page-hero__note">
+          Independent learning project · synthetic data · not affiliated with any employer
+        </p>
+        <div className="page-hero__meta">
+          <p className="status">Live demo: in progress</p>
+          <ExternalLink href={procureragLinks.repo}>ProcureRAG code on GitHub</ExternalLink>
+          <ExternalLink href={procureragLinks.evalReport}>Evaluation report</ExternalLink>
+        </div>
+      </div>
     <div className="case-layout">
       {/*
         Two copies of the same table of contents; CSS shows exactly one.
@@ -87,22 +108,11 @@ export default function ProcureRagPage() {
         </details>
       </nav>
       <nav className="toc toc--wide" aria-label="On this page">
-        <p className="eyebrow">On this page</p>
+        <p className="kicker">On this page</p>
         <TocList />
       </nav>
 
       <article aria-labelledby="case-title">
-        <h1 id="case-title">ProcureRAG: a procurement-intelligence copilot</h1>
-        <p className="muted">
-          Independent learning project · synthetic data · not affiliated with any employer
-        </p>
-        <p className="status">Live demo: in progress</p>
-        <p>
-          <ExternalLink href={procureragLinks.repo}>ProcureRAG code on GitHub</ExternalLink>
-          {" · "}
-          <ExternalLink href={procureragLinks.evalReport}>Evaluation report</ExternalLink>
-        </p>
-
         {/* 1. Problem and intended users */}
         <section aria-labelledby="problem">
           <h2 id="problem">Problem and intended users</h2>
@@ -360,9 +370,12 @@ export default function ProcureRagPage() {
           <div className="demo">
             <p className="status">Live demo: in progress</p>
             <p>
-              <strong>The chat below is a local slice, not a hosted service.</strong> It answers only
-              when this site runs next to a running ProcureRAG service. Nothing is hosted yet, so on
-              any other copy of this page a question comes back as “Demo offline”.
+              <strong>The chat below is wired to a hosted service that is switched off until launch.</strong>{" "}
+              The chain behind it (this site&apos;s server-side proxy, a persistent quota, a runtime
+              kill switch and the ProcureRAG service on Azure Container Apps) passed its launch smoke
+              test on 2 November 2026. While the switch is off, a question comes back as “Demo
+              offline”.{" "}
+              <ExternalLink href={procureragLinks.launchSmoke}>Launch smoke record</ExternalLink>
             </p>
             <h3>What the chat does</h3>
             <ul>
@@ -462,6 +475,7 @@ uv run python src/graph_regression.py`}</code>
           </ol>
         </section>
       </article>
+    </div>
     </div>
   );
 }

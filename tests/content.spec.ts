@@ -21,17 +21,26 @@ async function visibleText(page: Page, route: string) {
 /** Exact strings each route must show (inventory §1–§4, §7). */
 const REQUIRED: Record<(typeof ROUTES)[number], string[]> = {
   "/": [
+    // Design overhaul (2026-11-27): a positioning headline over the inventory §7 sentence.
+    "I build AI systems that show their evidence.",
     "ML/AI engineer with production forecasting and procurement experience, building evidence-driven RAG and agentic applications.",
-    "Working in ML and data science since 2019. Production forecasting at PepsiCo since 2022",
+    "Working in ML and data science since",
+    "Production forecasting at PepsiCo",
     "Barcelona",
     "Data Product Management Associate Manager",
     "Data Science Sr. Analyst",
     "Machine Learning Researcher / DL Consultant",
     "synthetic",
     "independent learning project",
-    "P@1 0.978 retrieval ranking (93 queries)",
+    // The headline number sits in its own tile, with its method directly under it.
+    "0.978",
+    "P@1 retrieval ranking (93 queries)",
+    "Retrieval ranking, not answer accuracy.",
     "430+ tests",
     "Live demo: in progress",
+    // The recorded runs keep the known failure visible, not just the wins.
+    "Answered · known failure",
+    "A valid citation is not a correct answer.",
     "Procesamiento del Lenguaje Natural 65 (2020)",
     "545 CVs with NER annotations (as documented in the dataset README)",
     "AGI 2022 proceedings (published 2023)",
@@ -53,8 +62,8 @@ const REQUIRED: Record<(typeof ROUTES)[number], string[]> = {
     "Not built yet",
     "Red · limited",
     "Live demo: in progress",
-    // Day 28: the chat exists, but only as a local slice; the page must say so.
-    "The chat below is a local slice, not a hosted service.",
+    // Day 29: the hosted chain exists and passed its smoke test, but it is switched off.
+    "The chat below is wired to a hosted service that is switched off until launch.",
     "Do not enter personal or confidential information.",
     "What approval is required for a EUR 60,000 purchase order?",
     "What do I have to document after an emergency purchase, and by when?",

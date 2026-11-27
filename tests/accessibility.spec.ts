@@ -162,7 +162,9 @@ test.describe("without JavaScript", () => {
   }) => {
     await page.setViewportSize({ width: 375, height: 900 });
     await page.goto("/procurerag");
-    await expect(page.getByText("The chat below is a local slice, not a hosted service.")).toBeVisible();
+    await expect(
+      page.getByText("The chat below is wired to a hosted service that is switched off until launch."),
+    ).toBeVisible();
 
     // Playwright's getByText() deliberately skips <noscript> elements, so the
     // paragraph is located by its tag instead. With JavaScript off the browser

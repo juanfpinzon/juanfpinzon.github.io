@@ -30,6 +30,8 @@ export type WorkCard = {
   role: string;
   result: string;
   links: WorkLink[];
+  /** Methods and tools named in the card's own text (no new claims). */
+  tags: string[];
   /** Optional illustration; `alt` must describe what the image shows. */
   image?: {
     src: string;
@@ -43,6 +45,7 @@ export type WorkCard = {
 export const selectedWork: WorkCard[] = [
   {
     id: "ner",
+    tags: ["PyTorch", "Flair", "BiLSTM-CRF", "NLP"],
     title: "Neural NER for resume data extraction",
     context: "Novel Software Systems · team research · 2020",
     problem:
@@ -67,6 +70,7 @@ export const selectedWork: WorkCard[] = [
   },
   {
     id: "market",
+    tags: ["LSTM", "XGBoost", "Random Forest", "PyTorch"],
     title: "Causal analysis of time series for market prediction",
     context: "Novel Software Systems · coauthor · 2022",
     problem:
@@ -81,6 +85,7 @@ export const selectedWork: WorkCard[] = [
   },
   {
     id: "dicom2stl",
+    tags: ["CT / DICOM", "3D meshes", "Open source"],
     title: "DICOM2STL: CT scans to 3D meshes",
     context: "Novel Software Systems · client work for Autobone",
     problem:
@@ -96,6 +101,7 @@ export const selectedWork: WorkCard[] = [
   },
   {
     id: "unet",
+    tags: ["U-NET", "PyTorch", "fast.ai", "OpenCV"],
     title: "U-NET spine vertebra detection",
     context: "Novel Software Systems · client proof of concept · H1 2020",
     problem:

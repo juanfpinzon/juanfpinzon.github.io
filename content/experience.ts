@@ -132,3 +132,41 @@ export const languages = [
   "English (full professional)",
   "Russian (elementary)",
 ] as const;
+
+/**
+ * The home page's career path, oldest first: the story from procurement to AI
+ * engineering. Titles are the exact held titles; each `summary` condenses an
+ * approved CV bullet above and adds nothing. ITMS and Aritex stay on /about.
+ */
+export const careerPath = [
+  {
+    years: "2014–2016",
+    title: "Procurement & Inventory Analyst",
+    org: "STF Group",
+    summary: "Master data, inventory and textile procurement; automated reporting and cut obsolete inventory by 20%.",
+  },
+  {
+    years: "2017–2019",
+    title: "M.Sc. Big Data Analytics & AI",
+    org: "Novosibirsk State University",
+    summary: "Graduate study in big data analytics and AI in Novosibirsk, Russia, after a business degree and the procurement years.",
+  },
+  {
+    years: "2019–2022",
+    title: "Machine Learning Researcher / DL Consultant",
+    org: "Novel Software Systems",
+    summary: "Applied research and client proofs of concept: NER, medical imaging and market prediction, with two publications.",
+  },
+  {
+    years: "2022–2026",
+    title: "Data Science Sr. Analyst",
+    org: "PepsiCo",
+    summary: "Production ML forecasting for PepsiCo's first IBP implementation (Iberia), then procurement analytics and a global spend-visibility rollout.",
+  },
+  {
+    years: "2026–now",
+    title: "Data Product Management Associate Manager",
+    org: "PepsiCo · Digital Procurement",
+    summary: "Define and prototype the agentic AI roadmap for Digital Procurement: RAG-based knowledge-management agents.",
+  },
+] as const;

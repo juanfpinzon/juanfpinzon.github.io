@@ -42,6 +42,9 @@ export const procureragLinks = {
   testQueries: onMain("docs/test-queries.md"),
   contractProbe: onMain("scripts/portfolio_contract_probe.py"),
   corpus: onMain("docs/corpus-v1.md"),
+  /** Day 29 runbook §5.5: the paid launch smoke on the deployed chain (2026-11-02). */
+  launchSmoke: `${onMain("docs/day-29-runbook.md")}#55-paid-launch-smoke-only-after-you-approve-the-spend`,
+  hostingRunbook: onMain("docs/day-29-runbook.md"),
 } as const;
 
 /** Where and when the evidence on this page was measured. */
@@ -191,8 +194,8 @@ export const evidence: EvidenceItem[] = [
   {
     lane: "notBuilt",
     claim:
-      "The public demo: a hosted service, a persistent quota, a runtime kill switch and a public URL. The chat, its server-side proxy and the service-token check exist only as a local slice.",
-    evidence: { label: "Browser contract probe (no paid calls)", href: procureragLinks.contractProbe },
+      "The public launch of the chat. The hosted chain (this site's server-side proxy, a persistent quota, a runtime kill switch and the service on Azure Container Apps) passed its launch smoke test on 2026-11-02 and stays switched off until launch.",
+    evidence: { label: "Launch smoke record", href: procureragLinks.launchSmoke },
   },
 ];
 
@@ -262,7 +265,134 @@ export const progression = [
 
 /** What comes next. Nothing in this list exists yet. */
 export const roadmap = [
-  "A hosted chain with a persistent quota, a provider-enforced LLM spend limit, a cloud budget alert, a kill switch and a recorded launch smoke test.",
+  "Switch the hosted chat on for the public launch, once the cloud budget alert's delivery has been tested with real charges.",
   "The public cutover of this site, with the old CV link kept working.",
   "A repair for Q091's incomplete answer, with its own regression gate.",
 ] as const;
+
+/**
+ * Home-page headline numbers. Each tile keeps its method next to the number
+ * (inventory §4): `label` is the short evidence chip, `note` says in plain
+ * words what the number means and what it does not.
+ */
+export const featureMetrics = [
+  {
+    value: "0.978",
+    label: "P@1 retrieval ranking (93 queries)",
+    note: "The top-ranked document was a correct one for 97.8% of 93 labeled questions. Retrieval ranking, not answer accuracy.",
+  },
+  {
+    value: "430+",
+    label: "430+ tests + eval-gated CI",
+    note: "Three required checks on every merge to main, including the retrieval and graph-route regressions.",
+  },
+  {
+    value: "9",
+    label: "retrieval configurations benchmarked",
+    note: "From hand-written TF-IDF and BM25 to a cross-encoder reranked hybrid, all on the same labeled set.",
+  },
+  {
+    value: "4",
+    label: "guard layers",
+    note: "Input, retrieved context, action and output, mapped to the OWASP Top 10 for LLM applications.",
+  },
+] as const;
+
+/** The request path, condensed for the home page. The full six-step diagram is on /procurerag. */
+export const pipeline = [
+  { step: "Question", detail: "HTTP API or local MCP tool" },
+  { step: "Guards", detail: "scope · role · injection · PII" },
+  { step: "Hybrid retrieval", detail: "BM25 + dense, fused with RRF" },
+  { step: "Rerank", detail: "cross-encoder over 15 chunks" },
+  { step: "Agent router", detail: "LangGraph: answer, 2nd pass or gap" },
+] as const;
+
+/** The three ways a request can end, shown after the pipeline. */
+export const outcomes = [
+  { tone: "ok", label: "Cited answer" },
+  { tone: "warn", label: "Evidence-gap report" },
+  { tone: "danger", label: "Refusal" },
+] as const;
+
+export type RunTone = "ok" | "warn" | "danger";
+
+/**
+ * Five recorded runs from the paid launch smoke on the deployed chain
+ * (Vercel → Azure Container Apps), 2026-11-02, revision `0000003`, LLM on.
+ * Source: ProcureRAG `docs/day-29-runbook.md` §5.5 on public `main`. The
+ * state, time and cited IDs are the script's output; the verdict is Juan's
+ * manual review, recorded there. The question texts for the two non-preset
+ * cases were not published, so they are described rather than quoted.
+ *
+ * Q091 is included on purpose: it is the known red, and hiding it would make
+ * the panel a highlight reel instead of evidence.
+ */
+export const recordedRuns: {
+  id: string;
+  question: string;
+  quoted: boolean;
+  state: string;
+  tone: RunTone;
+  time: string;
+  detail: string;
+  verdict: string;
+}[] = [
+  {
+    id: "Q005",
+    question: "What do I have to document after an emergency purchase, and by when?",
+    quoted: true,
+    state: "Answered",
+    tone: "ok",
+    time: "2.80 s",
+    detail: "cites FAQ-001, POL-001",
+    verdict: "Correct and complete. A second retrieval pass ran (9 sources).",
+  },
+  {
+    id: "Q090",
+    question: "What does GRNI mean?",
+    quoted: true,
+    state: "Evidence missing",
+    tone: "warn",
+    time: "0.42 s",
+    detail: "no model call",
+    verdict: "Honest gap: SOP-002 was not retrieved, so it reported the missing evidence instead of guessing.",
+  },
+  {
+    id: "cars",
+    question: "A question about company cars, which the corpus does not cover",
+    quoted: false,
+    state: "Model declined",
+    tone: "warn",
+    time: "2.13 s",
+    detail: "5 sources read, none cited",
+    verdict: "Correct refusal: the corpus has no company-car policy.",
+  },
+  {
+    id: "injection",
+    question: "A prompt-injection attempt",
+    quoted: false,
+    state: "Refused",
+    tone: "danger",
+    time: "0.23 s",
+    detail: "no retrieval, no model call",
+    verdict: "Correct: the prompt_injection guard stopped it at the service boundary.",
+  },
+  {
+    id: "Q091",
+    question: "What approvals and security evidence do I need for a EUR 120,000 SaaS renewal?",
+    quoted: true,
+    state: "Answered · known failure",
+    tone: "danger",
+    time: "3.22 s",
+    detail: "cites FAQ-001, POL-003",
+    verdict: "Two wrong claims, each with a citation the automatic checks accepted. A valid citation is not a correct answer.",
+  },
+];
+
+/** The smoke run's totals (runbook §5.5): 8 questions, 6 model calls. */
+export const launchSmoke = {
+  date: "2 November 2026",
+  questions: 8,
+  modelCalls: 6,
+  cost: "US$0.0012",
+} as const;

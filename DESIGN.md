@@ -1,73 +1,82 @@
 # DESIGN — portfolio design and information architecture contract
 
-- **Status:** Day 26 contract (2026-10-26). It guides the Day 27 preview; it is not an implementation.
+- **Status:** Day 26 contract (2026-10-26), revised by the design overhaul (2026-11-27, branch `design-improvements`): §1, §2 and the recruiter path in §3 describe the shipped "Evidence Lab" system.
 - **Owner:** Juan F. Pinzon. **Reviewer:** Hermes (HER-294).
 - **Content source:** [`docs/portfolio-content-inventory.md`](docs/portfolio-content-inventory.md). Every claim on the site comes from that table.
 - **Architecture source:** [`docs/adr/portfolio-demo-architecture.md`](docs/adr/portfolio-demo-architecture.md).
 
-## 1. Visual direction: editorial light
+## 1. Visual direction: Evidence Lab
 
-**Chosen (Juan, 2026-10-26):** a readable editorial engineering style. Warm paper background, near-black ink and one deep-teal accent. Serif headings over a clean sans body, with monospace only for metrics, IDs and code. Real diagrams and evidence tables carry the "engineer" signal, not decoration.
+**Chosen (Juan, 2026-11-27, design overhaul on `design-improvements`):** an "evidence lab" look that reads like a polished eval report. A crisp off-white page, near-black ink and one cobalt accent; a dark "instrument panel" band for the flagship project; a cobalt contact band to close. A characterful grotesk for display, a clean sans for reading, and a mono layer for every number, label and ID: the mono layer is the site's "evidence" voice. Sections are numbered like a report (`01 ——`), so the scroll reads as a sequence of findings.
 
-**Why:**
-- Most of the technical path is long-form reading: the case study, metric tables and failure analysis. A light, left-aligned layout with a 68-character measure reads best.
-- A recruiter skimming for 60 seconds gets strong hierarchy and no visual noise.
-- One accent keeps status colours (answered / refused / gap) meaningful in the demo.
+**Why it replaced "editorial light" (Day 26):**
+- The live page read flat and low-contrast: beige on beige, one serif weight, every section the same visual weight, and ProcureRAG third in the scroll inside a muted card.
+- The project's real differentiator is "every claim has a number and a documented limit". A report-like system (metric tiles, a request pipeline, a test-report table of recorded runs) shows that instead of describing it.
+- The one-accent rule survives: cobalt is the only brand hue, so the status colours (answered / evidence missing / refused) stay meaningful.
 
-**Rejected:**
+**Signature elements:** the highlighter stroke under the hero's claim; the dark ProcureRAG band with a giant wordmark, four metric tiles, a node-and-rail pipeline with a travelling pulse, and five recorded runs including the known failure; the hairline spec grid of skills; the career rail.
 
-| Alternative | Why not |
-|---|---|
-| Editorial dark, charcoal/cream/gold (Hafsa-inspired) | Too close to cloning a reference's identity. Long tables in light-on-dark are harder to keep comfortable and AA-compliant. It survives only as this design's dark mode, a token swap |
-| Engineering notebook (mono headings, visible grid) | Reads like a developer blog and weakens the recruiter path |
-| 3D hero, animated gradients, custom cursor, typing effects, skill-percentage bars, scroll-reveal content | Decoration over evidence. Scroll-reveal (`opacity: 0` until JavaScript runs) hides content without JS. Skill bars are unmeasurable |
+**Still rejected:** 3D hero, animated gradients, custom cursors, typing effects, skill-percentage bars and scroll-reveal content (`opacity: 0` until JavaScript runs). The only motion is CSS: a one-time staggered hero entrance, the pipeline pulse and the status beacon. All three stop under `prefers-reduced-motion`, and none hides content without JavaScript.
 
 ## 2. Design tokens
 
-Contrast ratios were computed with the WCAG 2.x relative-luminance formula on 2026-10-26. Every text pair passes AA (≥ 4.5:1), and borders pass the 3:1 non-text minimum.
+Contrast ratios were computed with the WCAG 2.x relative-luminance formula on 2026-11-27. Every text pair passes AA (≥ 4.5:1); control borders and focus rings pass the 3:1 non-text minimum.
 
 ### Colour
 
 | Token | Light | Dark | Use | Contrast (light / dark) |
 |---|---|---|---|---|
-| `--color-bg` | `#FAF8F3` | `#161514` | page | — |
-| `--color-surface` | `#F1EDE4` | `#211F1D` | cards, demo panel, table stripes | — |
-| `--color-ink` | `#1C1B19` | `#EDE9E1` | body text, headings | 16.2 / 15.1 on bg |
-| `--color-ink-muted` | `#5C5850` | `#A8A296` | metadata, captions | 6.7 / 7.2 on bg; 6.1 / 6.5 on surface |
-| `--color-accent` | `#0F5E5A` | `#6CC1B8` | links, primary button, focus of attention | 7.2 / 8.7 on bg |
-| `--color-on-accent` | `#FFFFFF` | `#0B1F1E` | text on accent buttons | 7.6 / 8.1 |
-| `--color-border` | `#8C8578` | `#77716A` | input and card borders | 3.5 / 3.8 on bg |
-| `--color-focus` | `#B4540A` | `#F2A65A` | focus ring | 4.7 / 9.0 on bg |
-| `--color-ok` | `#2F6B3A` | `#7CC48A` | `answered` state label | 6.0 / 8.8 on bg |
-| `--color-warn` | `#8A5A00` | `#E0B252` | `gap_report`, `model_declined`, `timed_out` labels | 5.6 / 9.3 on bg |
-| `--color-danger` | `#A3302B` | `#F08A80` | `blocked`, `unavailable` labels | 6.6 / 7.5 on bg |
+| `--color-bg` | `#F5F5F0` | `#0B0C0F` | page | — |
+| `--color-surface` | `#FFFFFF` | `#14161B` | cards, table frame, demo panel | — |
+| `--color-sunken` | `#EBEBE4` | `#1C1F25` | career band, tags, code, table head | — |
+| `--color-ink` | `#0D0F12` | `#EDEDE8` | body text, headings | 17.6 / 16.7 on bg |
+| `--color-ink-muted` | `#50545C` | `#A3A7AF` | metadata, captions, ledes | 7.0 / 8.1 on bg; 6.3 / 6.8 on sunken |
+| `--color-accent` | `#2A3DE0` | `#9AABFF` | links, primary button, kicker index, highlights | 6.8 / 9.0 on bg |
+| `--color-accent-soft` | `#DFE3FC` | `#1F2656` | tint behind ink text only (hero highlight, best table row) | — |
+| `--color-on-accent` | `#FFFFFF` | `#0B0C0F` | text on accent fills | 7.4 / 9.0 |
+| `--color-rule` | `#D9D9D1` | `#262A31` | decorative hairlines only, never a control edge | — |
+| `--color-border` | `#83868D` | `#6F747D` | inputs, table frame, preset buttons | 3.3 / 4.2 on bg |
+| `--color-focus` | `#C2410C` | `#FB923C` | focus ring | 4.7 / 8.6 on bg |
+| `--color-ok` | `#1D6B38` | `#74D394` | `answered`, "Demonstrated" lane | 6.0 / 10.7 on bg |
+| `--color-warn` | `#865600` | `#EABD5C` | gap / declined / timed out, "Not built yet" | 5.7 / 11.1 on bg; 5.2 on sunken |
+| `--color-danger` | `#B02A20` | `#FF8F85` | refused / offline, "Red · limited" | 6.0 / 8.9 on bg |
 
-- The focus ring is low-contrast against the accent fill itself (1.5:1). So it is always drawn **outside** the element, with `outline: 3px solid var(--color-focus); outline-offset: 3px`, which puts it against `bg` or `surface`.
-- Colour is never the only signal. Every demo state has a text label and an icon with an accessible name.
-- Dark mode follows `prefers-color-scheme` only. A manual toggle is cut-first (§8).
+**Instrument panel** (the dark ProcureRAG band; dark in both themes): `--panel-bg #0D0F12` (dark theme `#121419`), `--panel-raised #16191E`, `--panel-ink #F2F2EE` (17.1:1), `--panel-muted #A4A8B0` (8.1:1), `--panel-accent #9AABFF` (8.8:1), `--panel-ok #74D394`, `--panel-warn #EABD5C`, `--panel-danger #FF8F85` (all ≥ 7.6:1 on panel and raised panel), `--panel-focus #FB923C` (3.7:1 against the band).
+
+**Contact band:** `--contact-bg #2A3DE0` (dark theme `#1E2A8A`), text `#FFFFFF` (7.4:1), muted `#DFE3FF` (6.1:1), focus `#FFD166` (5.5:1 against the band).
+
+- The focus ring is drawn **outside** the element (`outline: 3px solid var(--color-focus); outline-offset: 3px`). Each band sets its own `--color-focus` so the ring keeps 3:1 against the band it sits on.
+- Colour is never the only signal. Every demo state and recorded run has a text label; icons are decorative.
+- Dark mode follows `prefers-color-scheme` only. A manual toggle is still cut-first (§8).
 
 ### Type
 
 | Token | Value |
 |---|---|
-| `--font-heading` | Source Serif 4 (600), self-hosted via `next/font` |
-| `--font-body` | Inter (400/600), self-hosted via `next/font` |
-| `--font-mono` | JetBrains Mono (400), metrics, IDs, code only |
-| Scale | `--step--1` 0.875rem · `--step-0` 1.0625rem (body) · `--step-1` 1.25rem · `--step-2` 1.5rem · `--step-3` clamp(1.75rem, 1.4rem + 1.5vw, 2.25rem) · `--step-4` clamp(2rem, 1.5rem + 2.5vw, 3rem) (hero) |
-| Line height | 1.6 body, 1.2 headings |
-| Measure | `max-width: 68ch` for prose; tables may use the full content width |
-| Alignment | Left-aligned. **Never justified**: the old site's justified paragraphs leave uneven word gaps |
+| `--font-display` | Bricolage Grotesque (variable, with the `opsz` axis), headings, metric numbers, wordmark |
+| `--font-body` | Instrument Sans (variable), body text |
+| `--font-mono` | JetBrains Mono (variable): kickers, metric labels, IDs, tags, table heads, code |
+| Scale | `--step--2` 0.8125rem (mono labels) · `--step--1` 0.9rem · `--step-0` 1.0625rem (body) · `--step-1` 1.25rem · `--step-2` clamp(1.375–1.75rem) · `--step-3` clamp(2–3.25rem) (section titles) · `--step-4` clamp(2.5–5.5rem) (hero) · `--step-5` clamp(2.5–7.5rem) (the ProcureRAG wordmark) |
+| Weight | 700 for display; 400/500/600 for body |
+| Tracking | display −0.02em to −0.05em as size grows; mono labels +0.06em uppercase |
+| Line height | 1.6 body, 1.1 headings, 0.9–1.0 for the hero and wordmark |
+| Measure | `max-width: 68ch` for prose; tables and grids may use the full width |
+| Alignment | Left-aligned, never justified. `text-wrap: balance` on headings, `pretty` on paragraphs |
+
+All three families are self-hosted through `next/font` at build time; no visitor request goes to Google.
 
 ### Space, shape, motion, layout
 
 | Token | Value |
 |---|---|
-| Spacing scale | 4, 8, 12, 16, 24, 32, 48, 64, 96 px (`--space-1` … `--space-9`) |
-| Radius | 4 px controls, 8 px cards. No pill-shaped everything |
-| Shadow | none; cards use `--color-surface` and a 1 px border |
-| Motion | 150 ms ease-out, opacity/transform only, for hover and focus. Under `prefers-reduced-motion: reduce`, **no** transitions. Content never depends on motion |
-| Breakpoints | content-first: single column below 768 px; two columns from 1024 px |
-| Container | max 1120 px, side padding 20 px (mobile) / 32 px (desktop) |
+| Spacing scale | 4, 8, 12, 16, 24, 32, 48, 64, 96, 128 px (`--space-1` … `--space-10`) |
+| Radius | 6 px controls (`--radius-control`), 10 px cards (`--radius-card`), 4 px tags and lane labels. Pills only for the status line |
+| Shadow | none on cards (hairline `--color-rule` edges); one soft shadow under the hero badge and the demo panel |
+| Grids | hairline grids (1 px gaps over `--color-rule`) for metric tiles, skills and the About "three kinds of work" |
+| Motion | 150 ms ease-out on colour, border and a 1 px button lift; a 520 ms staggered hero entrance; the pipeline pulse (5.5 s loop); the status beacon. Under `prefers-reduced-motion: reduce`, **no** transitions or animations |
+| Breakpoints | content-first: 640 px (sticky header, 2-up tiles), 768 px, 900 px (hero two columns, 2-up work cards, test-report rows), 1024 px (horizontal pipeline and career rail, 3-up skills, sticky case-study TOC) |
+| Container | max 1200 px, side padding 20 px (mobile) / 40 px (from 1024 px). `<main>` is full width; each section sets its own `.container`, so bands run edge to edge without `100vw` |
+| Header | sticky with a translucent blurred background from 640 px; static on phones, where it wraps to two rows |
 
 ## 3. Information architecture
 
@@ -80,26 +89,22 @@ Three routes for the preview. Fewer pages mean fewer places for content to drift
 /cv.pdf           The corrected CV (source file: docs/JuanFernandoPinzon_CV_Oct2026.pdf). The old /docs/Resume-...pdf URL is handled by the ADR's old-URL policy
 ```
 
-Global header (text links, no icon-only links): `Juan F. Pinzon` (home) · `ProcureRAG` · `About` · `CV`. Footer: GitHub · LinkedIn · Email · "Built with Next.js · Source on GitHub".
+Global header (text links, no icon-only links): a decorative `JP` monogram with `Juan F. Pinzon` (home) · `ProcureRAG` · `About` · `Contact` (`/#contact-title`) · `CV` (bordered). Footer: GitHub · LinkedIn · Email · "Built with Next.js · Source on GitHub".
 
 ### Recruiter path (under a minute, all on `/`)
 
-1. **Hero:** name, the selected value proposition, location (Barcelona), and links: `Read the ProcureRAG case study`, `CV`, `LinkedIn`, `Email`.
-2. **Experience summary:** three rows. PepsiCo Data Product Management Associate Manager (2026–). PepsiCo Data Science Sr. Analyst, production forecasting (2022–2026). Novel Software Systems ML researcher (2019–2022). The line "Earlier: procurement and operations roles (2014–2019)" links to `/about`.
-3. **Flagship card, ProcureRAG:**
-   - one sentence: independent, synthetic data;
-   - three evidence chips: "P@1 0.978 retrieval ranking (93 queries)", "430+ tests + eval-gated CI", "guarded FastAPI + local MCP". The test chip says "430+" (the same as the CV) so it does not go stale as tests are added; the case study gives the exact count with its ProcureRAG commit and date;
-   - links: `Case study` and `Code`;
-   - demo status written honestly: "Live demo: in progress" until Day 29 evidence exists.
-4. **Selected work and research:** four cards, each laid out as problem → Juan's role → result → link:
-   - NER paper and dataset;
-   - market time-series paper;
-   - DICOM2STL, with upstream credit;
-   - U-NET spine PoC (text only by default; `img55.png` is cleared for use, inventory §5.1, so adding it is Juan's Day 27 choice).
+Revised 2026-11-27: ProcureRAG moved from third to second, directly under the hero, and the page tells one story in six numbered beats.
 
-   Then one archive line: CS231n.
-5. **Credentials (small):** two text lines (Boot.dev RAG; HF MCP Unit 1), each linked to the matching ProcureRAG evidence.
-6. **Contact:** email and LinkedIn as text links. No form.
+1. **01 Hero:** a positioning headline ("I build AI systems that show their evidence."), the inventory §7 value proposition, a one-line "how", and actions: `See the flagship project`, `Download CV`, LinkedIn, Email. The portrait carries the current held title as a badge. A ruled proof line gives four CV facts: ML since 2019, production forecasting at PepsiCo 2022–26, two publications, procurement since 2014.
+2. **02 ProcureRAG (dark band):** the wordmark and a one-sentence tagline; the separation sentence (synthetic, independent, no employer data, not a production system); `Read the case study` and `Code`. Then:
+   - four metric tiles, each with its method under the number (P@1 0.978 retrieval ranking on 93 queries, "not answer accuracy"; 430+ tests + eval-gated CI; 9 retrieval configurations; 4 guard layers);
+   - the request path as a rail: question → guards → hybrid retrieval → rerank → agent router → cited answer / evidence-gap report / refusal;
+   - **recorded runs** in place of a live chat on the home page: five rows from the Day 29 paid launch smoke on the deployed chain (Q005 answered, Q090 evidence missing, company cars model declined, a prompt injection refused, Q091 answered with two wrong cited claims). The known failure is a row on purpose. Source: ProcureRAG `docs/day-29-runbook.md` §5.5;
+   - the status line "Live demo: in progress", saying the hosted chat passed its smoke test and is switched off until launch.
+3. **03 Skills, each with its evidence:** six areas in a hairline grid, each with tools and a link to where it is proven.
+4. **04 Career path:** five steps from procurement (2014) to the current role (2026), on a rail. Link to `/about`.
+5. **05 Selected work and research:** four cards, two per row, problem → my role → result → links, with method tags; the U-NET card floats its X-ray. Then the CS231n archive line.
+6. **06 Credentials (small) and contact:** two text credentials, then a cobalt contact band with the email address large, LinkedIn, GitHub and the CV.
 
 ### Technical path (`/procurerag`)
 
@@ -119,6 +124,8 @@ Each item in order, with a sticky in-page table of contents on desktop:
 9. **Roadmap.**
 
 ## 4. Wireframes
+
+> The two home-page wireframes below are the Day 26 originals, kept for history. The 2026-11-27 recruiter path in §3 supersedes them: ProcureRAG now comes second, as a full-width dark band.
 
 ### Mobile (360 px), `/`
 
